@@ -1,57 +1,51 @@
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-import jacobi_linear_2D as jl2
-import gauss_seidel_linear_2D as gsl2
-import sor_linear_2D as sorl2
-import sor_nonlinear_2D as sornl2
-import sor_hyperbolic_2D as sorh2
-import sorh_unsplit_2D as sorh2u
+from problems import poisson2D, nonlinear2D, linear2D
+import config2D
 
-import time
-
-# all 2D methods
-method_name_map = {
-    'jl2': "Jacobi (Linear)",
-    'gsl2': "Gauss Seidel (Linear)",
-    'sorl2': "SOR (linear)",
-    'sornl2': "SOR (parabolic, non-linear)",
-    'sorh2': "SOR (hyperbolic, non-linear, split)",
-    'sorh2_unsplit': "SOR (hyperbolic, nonlinear, unsplit)",
+problem_name_map = {
+    'poisson': "Poisson",
+    'nonlinear': "Nonlinear",
+    'linear': "Linear",
 }
 
-def solve(method, Nx, Ny, cfl, iter_max, omega):
-    print(f"Solving ({method})...")
+# all 2D methods
+# method_name_map = {
+#     'parabolic': "Poisson (parabolic)",
+#     'unsplit': "Poisson (unsplit)",
+#     'DS1': "Poisson (DS1)",
+#     'DS2': "Poisson (DS2)"
+# }
 
-    if method == "jl2":
-        U, t, iter_count, res, err_conv = jl2.solve(Nx, Ny, cfl, iter_max)
-    elif method == "gsl2":
-        U, t, iter_count, res, err_conv = gsl2.solve(Nx, Ny, cfl, iter_max)
-    elif method == "sorl2":
-        U, t, iter_count, res, err_conv = sorl2.solve(Nx, Ny, cfl, iter_max, omega)
-    elif method == "sornl2":
-        U, t, iter_count, res, err_conv = sornl2.solve(Nx, Ny, cfl, iter_max, omega)
-    elif method == "sorh2":
-        U, t, iter_count, res, err_conv = sorh2.solve(Nx, Ny, cfl, iter_max, omega)
-    elif method == "sorh2_unsplit":
-        U, t, iter_count, res, err_conv = sorh2u.solve(Nx, Ny, cfl, iter_max, omega)
+def solve(params):
+    problem = params.problem
+
+    if problem == "poisson":
+        U, t, iter_count, res, err_conv = poisson2D.solve(params)
+    elif problem == "nonlinear":
+        U, t, iter_count, res, err_conv = nonlinear2D.solve(params)
+    elif problem == "linear":
+        U, t, iter_count, res, err_conv = linear2D.solve(params)
     else:
-        print("invalid method!")
+        print("invalid problem!")
         return 0
 
     return U, t, iter_count, res, err_conv
 
 
-def plot(U, Nx, Ny, err_conv):
+def plot(U, iter_count, err_conv, params):
     print(f"Plotting solution...")
 
-    method_name = method_name_map[method]
+    problem_name = problem_name_map[params.problem]
 
-    x = np.linspace(0, 1, Nx+1)
-    y = np.linspace(0, 1, Ny+1)
+    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+    x, y = params.x[ib:ie+1], params.y[jb:je+1]
 
-    U_plot = U.T
+    U_interior = U[ib:ie+1, jb:je+1]
+    U_plot = U_interior.T
 
     # fig, ax = plt.subplots()
     # im = ax.imshow(
@@ -69,21 +63,23 @@ def plot(U, Nx, Ny, err_conv):
 
     nlevels = (Nx + Ny)
 
-    # ---- layout: equal-sized axes ----
-    fig = plt.figure(figsize=(12, 6))
-    gs = gridspec.GridSpec(1, 13)
-    fig.suptitle(f"Results: {method_name}", fontsize=16)  # ← GLOBAL TITLE
+    fig = plt.figure(figsize=(14, 6))
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1.4, 1], figure=fig)
 
-    # top row
-    ax1 = fig.add_subplot(gs[0, 0:7])
-    ax2 = fig.add_subplot(gs[0, 7:13])
+    fig.suptitle(f"Results: {problem_name} ({params.method})", fontsize=16)
+
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
 
     # contour plot
     cs = ax1.contourf(x, y, U_plot, levels=nlevels)
-    fig.colorbar(cs, ax=ax1, label="U(x,y)")
+    fig.colorbar(cs, ax=ax1, label=r"$U(x, y)$")
     ax1.set_xlabel("x")
     ax1.set_ylabel("y")
-    ax1.set_title("Contours of U(x,y)")
+    ax1.set_title(r"Contours of $U(x,y)$")
+
+    if params.method == "DS1" or params.method == "DS2":
+        iter_count -= 1
 
     ax2.semilogy(range(iter_count), err_conv[:iter_count], linewidth=2)
     ax2.set_title(f"Convergence History")
@@ -91,55 +87,64 @@ def plot(U, Nx, Ny, err_conv):
     ax2.set_ylabel("Error")
     ax2.grid(True)
 
-    plt.tight_layout()
+    # plt.tight_layout()
     # plt.savefig("sornl2_unsplit_bc0.png", dpi=600)
     plt.show()
 
 
-def time_compare(Nx, Ny, cfl, iter_max):
-    method = "sorh2"
-    omega = 0.80
+def plot_exact_solution(params):
+    x, y, rho0, R, G = params.x, params.y, params.rho0, params.R, params.G
+    X, Y = np.meshgrid(x, y, indexing='ij')
+
+    U = poisson2D.phi_exact(X, Y, rho0, R, G)
+
+    U_plot = U.T
+
+    nlevels = (Nx + Ny)
+
+    fig = plt.figure(figsize=(8, 6))
+
+    fig.suptitle(f"Exact Solution", fontsize=16)
+
+    ax = fig.add_subplot(111)
+
+    # contour plot
+    cs = ax.contourf(x, y, U_plot, levels=nlevels)
+    fig.colorbar(cs, ax=ax, label=r"$U(x, y)$")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_title(r"Contours of $U(x,y)$")
+
+    plt.show()
+
+
+def time_compare(params1, params2):
+    start_time = time.perf_counter()
+
+    solve(params1)
+
+    end_time = time.perf_counter()
+    time1 = end_time - start_time
+
+    print(f"total time (1): {time1:.8f} seconds")
 
     start_time = time.perf_counter()
 
-    solve(method, Nx, Ny, cfl, iter_max, omega)
+    solve(params2)
 
     end_time = time.perf_counter()
-    sorh2_time = end_time - start_time
+    time2 = end_time - start_time
 
-    print(f"total time (sorh2): {sorh2_time:.8f} seconds")
+    print(f"total time (2): {time2:.8f} seconds")
 
-    method = "sornl2"
-    omega = 1.60
+    max_time = max(time1, time2)
+    min_time = min(time1, time2)
 
-    start_time = time.perf_counter()
-
-    solve(method, Nx, Ny, cfl, iter_max, omega)
-
-    end_time = time.perf_counter()
-    sornl2_time = end_time - start_time
-
-    print(f"total time (sornl2): {sornl2_time:.8f} seconds")
-
-    method = "sorh2_unsplit"
-    omega = 0.84
-
-    start_time = time.perf_counter()
-
-    solve(method, Nx, Ny, cfl, iter_max, omega)
-
-    end_time = time.perf_counter()
-    sorh2u_time = end_time - start_time
-
-    print(f"total time (sorh2u): {sorh2u_time:.8f} seconds")
-
+    print(f"speedup: {max_time / min_time:.8f}")
     print()
-    print(f"speedup (sorh2 vs. sornl2): {sornl2_time / sorh2_time:.8f}")
-    print(f"speedup (sorh2u vs. sornl2): {sornl2_time / sorh2u_time:.8f}")
-    print(f"speedup (sorh2 vs. sorh2u): {sorh2u_time / sorh2_time:.8f}")
 
 
-
+### Notes ###
 # convergence is weird for sornl2 (for nonlinear BCs)
 # they all seemingly need ~200 iterations to converge
 # but the residual value stays at a fixed value (~0.1)
@@ -173,15 +178,6 @@ def time_compare(Nx, Ny, cfl, iter_max):
 # sornl2 and sorh2u look absolutely identical.
 
 
-
-Nx = 16
-Ny = 16
-cfl = 0.8
-iter_max = 3000
-
-time_compare(Nx, Ny, cfl, iter_max)
-exit(0)
-
 # method = "sornl2"
 # omega = 1.60
 
@@ -194,8 +190,8 @@ exit(0)
 # omega = 0.86
 
 # N = 16
-method = "sorh2_unsplit"
-omega = 0.84
+# method = "sorh2_unsplit"
+# omega = 0.84
 
 # N = 32 -> crashes at cfl ~ 1.23
 # method = "sorh2_unsplit"
@@ -213,10 +209,66 @@ omega = 0.84
 # actually doesn't change much. for N = 16, 32, 64, the stability threshold is
 # somewhere around cfl~1.2-1.4.
 
-U, t, iter_count, res, err_conv = solve(method, Nx, Ny, cfl, iter_max, omega)
+
+problem = "poisson"
+
+if problem == "poisson":
+    bc_type = "poisson"
+else:
+    bc_type = "linear_in_x"
+
+Nx = 32
+Ny = 32
+cfl = 0.8
+iter_max = 10000
+
+# method = "parabolic_jacobi"
+# omega = 0.8
+
+methods = ["parabolic", "unsplit", "DS1", "DS2"]
+
+# Poisson parameters
+omegas_p = [1.55, 0.94, 0.60, 0.60]
+
+# Nonlinear parameters
+omegas_n = [1.55, 0.82, 0.80, 0.80]
+
+# use this to set the method (index of "methods" array)
+m = 0
+
+params = config2D.Config(
+    problem=problem,
+    method=methods[m],
+    bc_type=bc_type,
+    Nx=Nx,
+    Ny=Ny,
+    cfl=cfl,
+    omega=omegas_p[m],
+    iter_max=iter_max
+)
+
+U, t, iter_count, res, err_conv = solve(params)
 
 print("iterations:", iter_count)
 print("final residual: ", res)
 print("time t: ", t)
 
-plot(U, Nx, Ny, err_conv)
+plot(U, iter_count, err_conv, params)
+
+# plot phi_exact for Poisson test eqn
+plot_exact_solution(params)
+
+# params2 = config2D.Config(
+#     problem=problem,
+#     method=methods[m],
+#     bc_type=bc_type,
+#     Nx=Nx,
+#     Ny=Ny,
+#     cfl=cfl,
+#     omega=omegas_n[(m + 1) % 4],
+#     iter_max=iter_max
+# )
+#
+# # example comparison
+# time_compare(params, params2)
+
