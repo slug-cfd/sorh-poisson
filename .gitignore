@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Compiled / build artifacts
+*.so
+*.out
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.env
+.venv
+venv/
+env/
+
+# PyCharm / IDE
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs / temp files
+*.log
+*.tmp
+*.swp
+
+# Python packaging locks (optional depending on workflow)
+# uv.lock
