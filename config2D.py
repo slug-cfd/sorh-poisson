@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 import numpy as np
 import BC_2D as bc
 
@@ -15,6 +16,8 @@ class Config:
 
     omega:      float   # SOR over/under-relaxation parameter
     iter_max:   int     # maximum allowed iterations
+
+    norm:       Any     # norm type. options: [1, 2, "fro", np.inf]
 
     # — derived —
     xa:         float   = field(init=False)  # left physical boundary (x)
@@ -66,22 +69,34 @@ class Config:
             self.xb = 1.0
             self.yb = 1.0
 
-        self.dx = self.xb / self.Nx
-        self.dy = self.yb / self.Ny
+        # self.dx = self.xb / self.Nx
+        # self.dy = self.yb / self.Ny
 
         self.ib = self.ngc
         self.jb = self.ngc
-        self.ie = self.Nx + self.ngc - 1
-        self.je = self.Ny + self.ngc - 1
+        # self.ie = self.Nx + self.ngc - 1
+        # self.je = self.Ny + self.ngc - 1
+        self.ie = self.Nx - self.ngc - 1
+        self.je = self.Ny - self.ngc - 1
+
 
         # np.linspace includes the endpoints; these will also
         # automatically include ghost cells depending on self.ngc
-        self.x = np.linspace(self.xa - (self.dx * self.ngc),
-                             self.xb + (self.dx * self.ngc), self.Nx + (2 * self.ngc))
-        self.y = np.linspace(self.ya - (self.dy * self.ngc),
-                             self.yb + (self.dy * self.ngc), self.Ny + (2 * self.ngc))
+        # self.x = np.linspace(self.xa - (self.dx * self.ngc),
+        #                      self.xb + (self.dx * self.ngc), self.Nx + (2 * self.ngc))
+        # self.y = np.linspace(self.ya - (self.dy * self.ngc),
+        #                      self.yb + (self.dy * self.ngc), self.Ny + (2 * self.ngc))
+
+        # np.linspace includes the endpoints; these will also
+        # automatically include ghost cells depending on self.ngc
+        self.x = np.linspace(self.xa, self.xb, self.Nx)
+        self.y = np.linspace(self.ya, self.yb, self.Ny)
+
+        self.dx = (self.xb - self.xa) / (self.Nx - 1)
+        self.dy = (self.yb - self.ya) / (self.Ny - 1)
 
         # initialize U0
-        self.U0 = np.zeros((self.Nx + (2 * self.ngc), self.Ny + (2 * self.ngc)))
+        # self.U0 = np.zeros((self.Nx + (2 * self.ngc), self.Ny + (2 * self.ngc)))
+        self.U0 = np.zeros((self.Nx, self.Ny))
 
 

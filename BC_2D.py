@@ -22,7 +22,7 @@ def update_BCs(U, params, phi_exact=None):
             print("Unrecognized bc_type: ", params.bc_type)
 
 
-def apply_bcs_poisson_2d(U, params, phi_exact):
+def get_bcs_poisson_2d(params, phi_exact):
     """
     U: (Nx+2, Ny+2) with 1 ghost layer each side.
     x, y: arrays of length Nx+2, Ny+2 (include interior and ghost cells)
@@ -31,25 +31,23 @@ def apply_bcs_poisson_2d(U, params, phi_exact):
     """
     x, y, rho0, R, G = (params.x, params.y,
                         params.rho0, params.R, params.G)
-    Nx, Ny, dx, dy = (params.Nx, params.Ny,
-                      params.dx, params.dy)     # xb, yb are the physical boundaries
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+    # Nx, Ny, dx, dy = (params.Nx, params.Ny, params.dx, params.dy)
+    # ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
     xa, xb, ya, yb = params.xa, params.xb, params.ya, params.yb
 
-    # Ghost cells: all Dirichlet
-    U[0, :] = phi_exact(xa-dx, y, rho0, R, G)  # x = xa (left)
-    U[ie+1, :] = phi_exact(xb+dx, y, rho0, R, G)  # x = xb (right)
-
-    U[1:-1, 0] = phi_exact(x[1:-1], ya-dy, rho0, R, G)  # y = ya (bottom)
-    U[1:-1, je+1] = phi_exact(x[1:-1], yb+dy, rho0, R, G)   # y = yb (top)
-
-    # Physical boundaries: all Dirichlet
-    U[1, 1:-1] = phi_exact(xa, y[1:-1], rho0, R, G)  # x = xa (left)
-    U[ie, 1:-1] = phi_exact(xb, y[1:-1], rho0, R, G)  # x = xb (right)
-
-    U[2:-2, 1] = phi_exact(x[2:-2], ya, rho0, R, G)  # y = ya (bottom)
-    U[2:-2, je] = phi_exact(x[2:-2], yb, rho0, R, G)   # y = yb (top)
-
+    # # Ghost cells: all Dirichlet
+    # U[0, :] = phi_exact(xa-dx, y, rho0, R, G)  # x = xa (left)
+    # U[ie+1, :] = phi_exact(xb+dx, y, rho0, R, G)  # x = xb (right)
+    #
+    # U[1:-1, 0] = phi_exact(x[1:-1], ya-dy, rho0, R, G)  # y = ya (bottom)
+    # U[1:-1, je+1] = phi_exact(x[1:-1], yb+dy, rho0, R, G)   # y = yb (top)
+    #
+    # # Physical boundaries: all Dirichlet
+    # U[1, 1:-1] = phi_exact(xa, y[1:-1], rho0, R, G)  # x = xa (left)
+    # U[ie, 1:-1] = phi_exact(xb, y[1:-1], rho0, R, G)  # x = xb (right)
+    #
+    # U[2:-2, 1] = phi_exact(x[2:-2], ya, rho0, R, G)  # y = ya (bottom)
+    # U[2:-2, je] = phi_exact(x[2:-2], yb, rho0, R, G)   # y = yb (top)
 
     # --- Reflection at x=0 (left): ghost mirrors first physical column
     # U[0, jb:je+1] = U[1, jb:je+1]
@@ -73,6 +71,30 @@ def apply_bcs_poisson_2d(U, params, phi_exact):
     # U[0, 0]       = U[1, 1]
     # U[0, je+1]    = U[1, je]
     # U[je+1, 0]    = U[je, 1]
+
+    # xa, xb, ya, yb = config.xa, config.xb, config.ya, config.yb
+    # x, y = config.x, config.y
+
+    # ---- Enforce U(x, y) = phi_exact(x, y) on the physical boundary ----
+    phi_xL = phi_exact(xa, y, rho0, R, G)
+    phi_xR = phi_exact(xb, y, rho0, R, G)
+
+    phi_yB = phi_exact(x, ya, rho0, R, G)
+    phi_yT = phi_exact(x, yb, rho0, R, G)
+
+    BCs = [phi_xL, phi_xR, phi_yB, phi_yT]
+
+    return BCs
+
+def apply_bcs_poisson_2d(U, params, boundaries):
+    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+    phi_xL, phi_xR, phi_yB, phi_yT = boundaries
+
+    # Apply to ghost cells
+    U[0, :] = phi_xL
+    U[ie + 1, :] = phi_xR
+    U[:, 0] = phi_yB
+    U[:, je + 1] = phi_yT
 
 
 # solution profile: U(x, y) = x
