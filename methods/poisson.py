@@ -1,31 +1,5 @@
-import numpy as np
 import BC_2D as bc
-
-def centered_2D_laplacian(U, i, j, config):
-    dx, dy = config.dx, config.dy
-    x_disc = (1 / dx**2) * (U[i+1, j] - (2.0 * U[i, j]) + U[i-1, j])
-    y_disc = (1 / dy**2) * (U[i, j+1] - (2.0 * U[i, j]) + U[i, j-1])
-    return x_disc + y_disc
-
-
-def get_all_laplace(U, params) -> np.ndarray:
-    # x, y = params.x, params.y
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
-    laplace_array = np.zeros_like(U)
-
-    for i in range(ib, ie+1):
-        for j in range(jb, je+1):
-            laplace_array[i, j] = centered_2D_laplacian(U, i, j, params)
-
-    return laplace_array
-
-def isotropic_9pt(U, i, j, h):
-    c = 1.0 / (6.0 * h**2)
-    update = (4.0 * (U[i+1, j] + U[i-1, j] + U[i, j+1] + U[i, j-1])
-              + (U[i+1, j+1] + U[i+1, j-1] + U[i-1, j+1] + U[i-1, j-1])
-              - (20.0 * U[i, j]))
-    return c * update
-
+from methods.poisson_helpers import *
 
 def parabolic(params, phi_exact, get_all_f):
     # get parameters from config class
@@ -172,7 +146,7 @@ def parabolic(params, phi_exact, get_all_f):
     return U, t, iter_count, res_exact, err_conv
 
 
-def x_sweep(U, rx, dt, params, phi_exact, f_all):
+def x_sweep(U, rx, dt, params, f_all, boundaries):
     Nx, Ny, omega = params.Nx, params.Ny, params.omega
     ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
 
@@ -190,11 +164,11 @@ def x_sweep(U, rx, dt, params, phi_exact, f_all):
             # SOR update
             U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
 
-    bc.apply_bcs_poisson_2d(U_new, params, phi_exact=phi_exact)
+    bc.apply_bcs_poisson_2d(U, params, boundaries)
     return U_new
 
 
-def y_sweep(U, ry, dt, params, phi_exact, f_all):
+def y_sweep(U, ry, dt, params, f_all, boundaries):
     Nx, Ny, omega = params.Nx, params.Ny, params.omega
     ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
 
@@ -212,89 +186,15 @@ def y_sweep(U, ry, dt, params, phi_exact, f_all):
             # SOR update
             U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
 
-    bc.apply_bcs_poisson_2d(U_new, params, phi_exact=phi_exact)
+    bc.apply_bcs_poisson_2d(U, params, boundaries)
     return U_new
 
 
 def DS1(params, phi_exact, get_all_f):
-    # get parameters as needed
-    Nx, Ny, dx, dy = params.Nx, params.Ny, params.dx, params.dy
+    # get parameters from config class
+    cfl, dx, dy, Nx, Ny = params.cfl, params.dx, params.dy, params.Nx, params.Ny
     ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
-    cfl, iter_max = params.cfl, params.iter_max
-    norm = params.norm
-
-    U = params.U0.copy()
-    bc.apply_bcs_poisson_2d(U, params, phi_exact=phi_exact)
-
-    # apply f(x, y) over the whole 2D grid
-    f_all = get_all_f(params)
-
-    #  error array (one value per iteration)
-    err_conv = np.zeros(iter_max)
-
-    t = 0.0
-    iter_count = 0
-
-    threshold = 1e-7
-    err_max = 1e7
-    res_exact = 1e-5
-    err_exact = 1e2
-
-    # difference between the ERROR for i and i+1 iteration
-    res_diff = 1e2
-    res_prev = 1e6
-
-    x, y, rho0, R, G = params.x, params.y, params.rho0, params.R, params.G
-    X, Y = np.meshgrid(x, y, indexing='ij')
-
-    # print("using exact solution")
-    U_exact = phi_exact(X, Y, rho0, R, G)
-
-    while res_diff > threshold and iter_count < iter_max and res_exact < err_max:
-        U_init = U.copy()
-
-        # dt will be fixed; no nonlinear terms
-        dt = cfl * np.min([dx, dy])
-        rx = dt / dx ** 2
-        ry = dt / dy ** 2
-
-        # 1. Solve u_tx = vu_xx: U^n -> U^(n+1/2)
-        U = x_sweep(U, rx, dt, params, phi_exact, f_all)
-
-        # 2. Solve u_ty = vu_yy: U^(n+1/2) -> U^(n+1)
-        U = y_sweep(U, ry, dt, params, phi_exact, f_all)
-
-        # difference between subsequent iterations
-        # err_diff = U - U_init
-
-        # difference between current and exact solution
-        err_exact = U - U_exact
-
-        # take the norm and average
-        res_exact = np.linalg.norm(err_exact[ib:ie + 1, jb:je + 1], ord=norm)
-        if norm in [1, 2, "fro"]:
-            res_exact /= np.sqrt(Nx * Ny)
-
-        # no absolute value?
-        # res_diff = res_prev - res_exact
-
-        res_diff = np.abs(res_prev - res_exact)
-        res_prev = res_exact
-
-        err_conv[iter_count] = res_exact
-
-        #  update clock and iteration count
-        t = t + dt
-        iter_count += 1
-
-    return U, t, iter_count, res_exact, err_conv
-
-
-def DS2(params, phi_exact, get_all_f):
-    # get parameters as needed
-    Nx, Ny, dx, dy = params.Nx, params.Ny, params.dx, params.dy
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
-    cfl, iter_max = params.cfl, params.iter_max
+    norm, iter_max = params.norm, params.iter_max
 
     # error array (one value per iteration)
     err_conv = np.zeros(iter_max)
@@ -302,11 +202,99 @@ def DS2(params, phi_exact, get_all_f):
     t = 0.0
     iter_count = 0
 
-    threshold = 1e-7
-    res = 1e2
+    threshold = 1e-7  # error/residual tolerance
+    res_max = 1e7  # upper bound to avoid blow-up in unstable cases
+    res_diff = 1e2  # difference in norm of the solution between current and previous iteration
+
+    # we need a separate variable for res_exact because we are still
+    # using res_diff as the criterion to exit the iteration loop,
+    # even though we are returning and plotting res_exact.
+    res_exact = 1e4
+    res_prev = 0.0
+
+    boundaries = bc.get_bcs_poisson_2d(params, phi_exact)
 
     U = params.U0.copy()
-    bc.apply_bcs_poisson_2d(U, params, phi_exact=phi_exact)
+    bc.apply_bcs_poisson_2d(U, params, boundaries)
+
+    # apply f(x, y) over the whole 2D grid
+    f_all = get_all_f(params)
+
+    # dt will be fixed; no nonlinear terms
+    dt = cfl * np.min([dx, dy])
+    rx = dt / dx ** 2
+    ry = dt / dy ** 2
+
+    metric = "exact"
+
+    x, y, rho0, R, G = params.x, params.y, params.rho0, params.R, params.G
+    X, Y = np.meshgrid(x, y, indexing='ij')
+
+    U_exact = phi_exact(X, Y, rho0, R, G)   # exact solution over full grid
+
+    while res_diff > threshold and iter_count < iter_max and res_exact < res_max:
+        U_old = U.copy()
+
+        # 1. Solve u_tx = u_xx - f: U^n -> U^(n+1/2)
+        U = x_sweep(U, rx, dt, params, f_all, boundaries)
+
+        # 2. Solve u_ty = u_yy - f: U^(n+1/2) -> U^(n+1)
+        U = y_sweep(U, ry, dt, params, f_all, boundaries)
+
+        # difference between laplacian(U) and f
+        # this can also be used as the convergence condition, but is more costly
+        # l_all = get_all_laplace(U, params)
+        # err_diff = l_all - f_all
+
+        # difference between subsequent iterations
+        err_diff = U - U_old
+
+        if metric == "exact":
+            err_exact = U - U_exact
+            res_exact = np.linalg.norm(err_exact[ib:ie + 1, jb:je + 1], ord=norm)
+            res_diff = np.abs(res_exact - res_prev)
+            res_prev = res_exact
+        else:
+            # take the norm and average
+            res_diff = np.linalg.norm(err_diff[ib:ie + 1, jb:je + 1], ord=norm)
+            if norm in [1, 2, "fro"]:
+                res_diff /= np.sqrt(Nx * Ny)
+
+        err_conv[iter_count] = res_exact
+
+        #  update clock and iteration count
+        t += dt
+        iter_count += 1
+
+    return U, t, iter_count, res_exact, err_conv
+
+
+def DS2(params, phi_exact, get_all_f):
+    # get parameters from config class
+    cfl, dx, dy, Nx, Ny = params.cfl, params.dx, params.dy, params.Nx, params.Ny
+    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+    norm, iter_max = params.norm, params.iter_max
+
+    # error array (one value per iteration)
+    err_conv = np.zeros(iter_max)
+
+    t = 0.0
+    iter_count = 0
+
+    threshold = 1e-7  # error/residual tolerance
+    res_max = 1e7  # upper bound to avoid blow-up in unstable cases
+    res_diff = 1e2  # difference in norm of the solution between current and previous iteration
+
+    # we need a separate variable for res_exact because we are still
+    # using res_diff as the criterion to exit the iteration loop,
+    # even though we are returning and plotting res_exact.
+    res_exact = 1e4
+    res_prev = 0.0
+
+    boundaries = bc.get_bcs_poisson_2d(params, phi_exact)
+
+    U = params.U0.copy()
+    bc.apply_bcs_poisson_2d(U, params, boundaries)
 
     # apply f(x, y) over the whole 2D grid
     f_all = get_all_f(params)
@@ -316,28 +304,50 @@ def DS2(params, phi_exact, get_all_f):
     rx = dt / dx
 
     # initial x-sweep: U^n -> U^(n+1/4)
-    U = x_sweep(U, rx, dt, params, phi_exact, f_all)
+    U = x_sweep(U, rx, dt, params, f_all, boundaries)
     t += dt
 
     ### Step 2: main iteration loop (full time steps) ###
-    while res > threshold and iter_count < iter_max:
-        U_init = U.copy()
+    dt = cfl * np.min([dx, dy])
+    ry = dt / dy
+    rx = dt / dx
 
-        dt = cfl * np.min([dx, dy])
-        ry = dt / dy
-        rx = dt / dx
+    metric = "exact"
+
+    x, y, rho0, R, G = params.x, params.y, params.rho0, params.R, params.G
+    X, Y = np.meshgrid(x, y, indexing='ij')
+
+    U_exact = phi_exact(X, Y, rho0, R, G)   # exact solution over full grid
+
+    while res_diff > threshold and iter_count < iter_max and res_exact < res_max:
+        U_old = U.copy()
 
         # full y-sweep: U^(n+1/4) -> U^(n+3/4)
-        U = y_sweep(U, ry, dt, params, phi_exact, f_all)
+        U = y_sweep(U, ry, dt, params, f_all, boundaries)
 
         # full x-sweep: U^(n+3/4) -> U^(n+5/4)
-        U = x_sweep(U, rx, dt, params, phi_exact, f_all)
+        U = x_sweep(U, rx, dt, params, f_all, boundaries)
 
-        # calculate error (one full cycle)
-        err = U - U_init
+        # difference between laplacian(U) and f
+        # this can also be used as the convergence condition, but is more costly
+        # l_all = get_all_laplace(U, params)
+        # err_diff = l_all - f_all
 
-        res = np.linalg.norm(err[ib:ie + 1, jb:je + 1], ord="fro") / np.sqrt(Nx * Ny)
-        err_conv[iter_count] = res
+        # difference between subsequent iterations
+        err_diff = U - U_old
+
+        if metric == "exact":
+            err_exact = U - U_exact
+            res_exact = np.linalg.norm(err_exact[ib:ie + 1, jb:je + 1], ord=norm)
+            res_diff = np.abs(res_exact - res_prev)
+            res_prev = res_exact
+        else:
+            # take the norm and average
+            res_diff = np.linalg.norm(err_diff[ib:ie + 1, jb:je + 1], ord=norm)
+            if norm in [1, 2, "fro"]:
+                res_diff /= np.sqrt(Nx * Ny)
+
+        err_conv[iter_count] = res_exact
 
         #  update clock and iteration count
         t = t + dt
@@ -350,10 +360,10 @@ def DS2(params, phi_exact, get_all_f):
     rx = 0.5 * dt / dx  # half-step
 
     # final y-sweep: U^(n+1/4) -> U^(n+3/4)
-    U = y_sweep(U, ry, dt, params, phi_exact, f_all)
+    U = y_sweep(U, ry, dt, params, f_all, boundaries)
 
     # final x-sweep: U^(n+3/4) -> U^(n+1)
-    U = x_sweep(U, rx, dt, params, phi_exact, f_all)
+    U = x_sweep(U, rx, dt, params, f_all, boundaries)
 
     # since dt is different between step 1 and step 3, we
     # estimate the total dt value between both iterations as
@@ -363,58 +373,16 @@ def DS2(params, phi_exact, get_all_f):
     # extra iteration to account for step 1 and step 3
     iter_count += 1
 
-    return U, t, iter_count, res, err_conv
+    return U, t, iter_count, res_exact, err_conv
 
 
-def unsplit_update(U, params, boundaries, update_coeffs, f_all, dt):
+def unsplit_update(U, params, boundaries, update_coeffs, f_all):
     U_old = U.copy()
     U_new = U.copy()
 
     Nx, Ny, dx, dy, omega = params.Nx, params.Ny, params.dx, params.dy, params.omega
     rx, ry, midpoint, c1, c2 = update_coeffs
     ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
-
-    # for i in range(ib, ie + 1):
-    #     for j in range(jb, je + 1):
-    #         if (i + j) % 2 == parity[0]:
-    #             U_new[i, j] = U[i, j] + c1 * (dy * U_new[i - 1, j] + dx * U_new[i, j - 1]
-    #                                           + (-midpoint * U[i, j]) + ((rx - dy) * U[i - 1, j])
-    #                                           + ((ry - dx) * U[i, j - 1]) + (rx * U[i + 1, j])
-    #                                           + (ry * U[i, j + 1]) - (c2 * f_all[i, j]))
-    #
-    #             # SOR update
-    #             U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
-    #
-    # for i in range(ib, ie + 1):
-    #     for j in range(jb, je + 1):
-    #         if (i + j) % 2 == parity[1]:
-    #             U_new[i, j] = U[i, j] + c1 * (dy * U_new[i - 1, j] + dx * U_new[i, j - 1]
-    #                                           + (-midpoint * U[i, j]) + ((rx - dy) * U[i - 1, j])
-    #                                           + ((ry - dx) * U[i, j - 1]) + (rx * U[i + 1, j])
-    #                                           + (ry * U[i, j + 1]) - (c2 * f_all[i, j]))
-    #
-    #             # SOR update
-    #             U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
-
-    # for i in range(ib, ie + 1):
-    #     for j in range(jb, je + 1):
-    #         # if (i + j) % 2 == parity[0]:
-    #         U_new[i, j] = (U[i, j] + c1 * ((dy * (U_new[i-1, j] - U[i-1, j]))
-    #                        + (dx * (U_new[i, j-1] - U[i, j-1]))
-    #                        + (dt * (isotropic_9pt(U, i, j, dx) - f_all[i, j]))))
-    #
-    #         # SOR update
-    #         U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
-
-    # for i in range(ib, ie + 1):
-    #     for j in range(jb, je + 1):
-    #         # if (i + j) % 2 == parity[1]:
-    #         U_new[i, j] = (U[i, j] + c1 * ((dy * (U_new[i-1, j] - U[i-1, j]))
-    #                        + (dx * (U_new[i, j-1] - U[i, j-1]))
-    #                        + (dt * (isotropic_9pt(U, i, j, dx) - f_all[i, j]))))
-    #
-    #         # SOR update
-    #         U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
 
     # 2nd order spatial on LHS
     # for i in range(ib, ie + 1):
@@ -434,16 +402,7 @@ def unsplit_update(U, params, boundaries, update_coeffs, f_all, dt):
     #
     #         # SOR update
     #         U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
-
-    for i in range(ib, ie + 1):
-        for j in range(jb, je + 1):
-            U_new[i, j] = (U[i, j] + c1 * ((dy * (U_new[i-1, j] - U[i-1, j]))
-                           + (dx * (U_new[i, j-1] - U[i, j-1]))
-                           + (c2 * (centered_2D_laplacian(U, i, j, params) - f_all[i, j]))))
-
-            # SOR update
-            U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
-
+    #
     # using centered differences
     # for i in range(ib, ie + 1):
     #     for j in range(jb, je + 1):
@@ -453,6 +412,15 @@ def unsplit_update(U, params, boundaries, update_coeffs, f_all, dt):
     #
     #         # SOR update
     #         U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
+
+    for i in range(ib, ie + 1):
+        for j in range(jb, je + 1):
+            U_new[i, j] = (U[i, j] + c1 * ((dy * (U_new[i-1, j] - U[i-1, j]))
+                           + (dx * (U_new[i, j-1] - U[i, j-1]))
+                           + (c2 * (centered_2D_laplacian(U, i, j, params) - f_all[i, j]))))
+
+            # SOR update
+            U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
 
     # update BCs
     bc.apply_bcs_poisson_2d(U, params, boundaries)
@@ -507,13 +475,12 @@ def unsplit(params, phi_exact, get_all_f):
     x, y, rho0, R, G = params.x, params.y, params.rho0, params.R, params.G
     X, Y = np.meshgrid(x, y, indexing='ij')
 
-    # print("using exact solution")
-    U_exact = phi_exact(X, Y, rho0, R, G)
+    U_exact = phi_exact(X, Y, rho0, R, G)   # exact solution over full grid
 
     while res_diff > threshold and iter_count < iter_max and res_exact < res_max:
         U_old = U.copy()
 
-        U = unsplit_update(U, params, boundaries, update_coeffs, f_all, dt)
+        U = unsplit_update(U, params, boundaries, update_coeffs, f_all)
 
         # difference between laplacian(U) and f
         # this can also be used as the convergence condition, but is more costly

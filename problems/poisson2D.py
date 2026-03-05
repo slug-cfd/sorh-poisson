@@ -3,6 +3,7 @@ import math
 
 # import BC_2D as bc
 from methods import poisson as pm
+from methods import ADI as adi
 
 # from typing import Callable, Optional
 
@@ -65,6 +66,10 @@ def solve(params):
             U, t, iter_count, res, err_conv = pm.DS2(params, phi_exact, get_all_f_from_xy)
         case "unsplit":
             U, t, iter_count, res, err_conv = pm.unsplit(params, phi_exact, get_all_f_from_xy)
+        case "pADI":
+            U, t, iter_count, res, err_conv = adi.parabolic(params, phi_exact, get_all_f_from_xy)
+        case "hADI":
+            U, t, iter_count, res, err_conv = adi.hyperbolic(params, phi_exact, get_all_f_from_xy)
         case _:
             return -1
 

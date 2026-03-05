@@ -1,13 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Any
 import numpy as np
-import BC_2D as bc
 
 @dataclass
 class Config:
     # — user‐set —
     problem:    str     # 'poisson', 'linear', 'nonlinear'
-    method:     str     # 'parabolic', 'unsplit', 'DS1', 'DS2'
+    method:     str     # 'parabolic', 'unsplit', 'DS1', 'DS2', 'pADI', 'hADI'
     bc_type:    str     # 'poisson', 'linear_in_x', etc.
 
     Nx:         int     # number of INTERIOR cells (x-direction)

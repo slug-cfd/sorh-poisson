@@ -148,7 +148,7 @@ def time_compare(params1, params2):
     print()
 
 
-### Notes ###
+### Old Notes ###
 # convergence is weird for sornl2 (for nonlinear BCs)
 # they all seemingly need ~200 iterations to converge
 # but the residual value stays at a fixed value (~0.1)
@@ -238,24 +238,30 @@ else:
 Nx = 32
 Ny = 32
 cfl = 0.8
-iter_max = 4000
+iter_max = 10000
 
-methods = ["parabolic", "unsplit", "DS1", "DS2"]
+# DS1/2 are runnable but give flawed results.
+# pADI and hADI are the ADI implementations.
+methods = ["parabolic", "unsplit", "DS1", "DS2", "pADI", "hADI"]
 
 # Poisson parameters (N=32)
-omegas_p = [2.292, 0.919, 0.68, 0.63]
+omegas_p = [2.292, 0.919, 0.915, 0.920, 1.00, 0.09]
 
-# N = 32 (optimal omega values)
+# hyperbolic ADI is very sensitive to the choice of dt and omega.
+# go to the hyperbolic method methods/ADI to change dt_factor.
+# the following values gave the best results for hADI from my testing.
+# leapfrog: dt_factor = 13.0, omega = 0.09
+# bdf1: dt_factor = 6.0, omega = 0.07
+
+# N = 32 (optimal omega values) (explicit methods)
 # -> parabolic: 2.292 -> 71 iterations
 # -> hyperbolic: 0.919 -> 93 iterations
 
-# N=64: 0.969
-
-# Nonlinear parameters (N=32)
-omegas_n = [1.55, 0.82, 0.80, 0.80]
+# Nonlinear parameters (for toy problem) (N=32)
+# omegas_n = [1.55, 0.82, 0.80, 0.80]
 
 # use this to set the method (index of "methods" array)
-m = 0
+m = 5
 
 norm = "fro"
 
@@ -285,17 +291,17 @@ plot_exact_solution(params)
 
 params2 = config2D.Config(
     problem=problem,
-    method=methods[1],
+    method=methods[4],
     bc_type=bc_type,
     Nx=Nx,
     Ny=Ny,
     cfl=cfl,
-    omega=omegas_p[1],
+    omega=omegas_p[4],
     iter_max=iter_max,
     norm=norm
 )
 
 # example comparison
-# print("\n---timed test---")
-# time_compare(params, params2)
+print("\n---timed test---")
+time_compare(params, params2)
 
