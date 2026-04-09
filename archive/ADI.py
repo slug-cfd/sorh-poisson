@@ -1,7 +1,8 @@
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 import BC_2D as bc
-from methods.poisson_helpers import *
+from methods.Poisson.poisson_helpers import *
+
 
 def parabolic_update(U, params, solve_x, solve_y, dt, f_all, boundaries):
     Nx, Ny, dx, dy = params.Nx, params.Ny, params.dx, params.dy
@@ -38,6 +39,7 @@ def parabolic_update(U, params, solve_x, solve_y, dt, f_all, boundaries):
 
     return U_new
 
+
 def parabolic(params, phi_exact, get_all_f):
     # get parameters from config class
     cfl, dx, dy, Nx, Ny = params.cfl, params.dx, params.dy, params.Nx, params.Ny
@@ -50,7 +52,8 @@ def parabolic(params, phi_exact, get_all_f):
     bc.apply_bcs_poisson_2d(U, params, boundaries)
 
     # experiment on dt
-    dt = 32.0 * cfl * np.min([dx, dy])
+    dt_factor = 1.0
+    dt = dt_factor * cfl * np.min([dx, dy])
 
     # set up matrices for implicit-explicit systems
     # Sparse identities (CSR by default)
@@ -218,6 +221,7 @@ def hyperbolic_update_leapfrog(U, U_old_half, params, solve_x, solve_y, dt, f_al
 
     return U_new_half, U_new
 
+
 def hyperbolic_update_bdf1(U, Unm1, params, solve_x, solve_y, dt, f_all, boundaries):
     Nx, Ny, dx, dy = params.Nx, params.Ny, params.dx, params.dy
     ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
@@ -294,6 +298,7 @@ def hyperbolic_update_bdf1(U, Unm1, params, solve_x, solve_y, dt, f_all, boundar
 
     return U_new
 
+
 def hyperbolic(params, phi_exact, get_all_f):
     # get parameters from config class
     cfl, dx, dy, Nx, Ny = params.cfl, params.dx, params.dy, params.Nx, params.Ny
@@ -306,7 +311,7 @@ def hyperbolic(params, phi_exact, get_all_f):
     bc.apply_bcs_poisson_2d(U, params, boundaries)
 
     # experiment on dt
-    dt_factor = 13.0
+    dt_factor = 1.0
     dt = dt_factor * cfl * np.min([dx, dy])
 
     # set up matrices for implicit-explicit systems

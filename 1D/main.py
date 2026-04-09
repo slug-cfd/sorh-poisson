@@ -10,6 +10,7 @@ import sor_linear as sorl
 import gauss_seidel_nonlinear as gsnl
 import sor_nonlinear as sornl
 import sor_hyperbolic as sorh
+import sorh_linear as sorhl
 
 method_name_map = {
     'jl': "Jacobi (Linear)",
@@ -19,6 +20,7 @@ method_name_map = {
     'gsnl': "Gauss Seidel (non-linear)",
     'sornl': "SOR (non-linear)",
     'sorh': "SOR (hyperbolic, non-linear)",
+    'sorhl': "SOR (hyperbolic, linear)",
 }
 
 # switch solver for a single run of a method + set of parameters
@@ -40,6 +42,8 @@ def solve(method, N, cfl, iter_max, omega=1.0):
         U, t, iter_count, res, err_conv, err_exact = sornl.solve(N, cfl, iter_max, omega)
     elif method == "sorh":
         U, t, iter_count, res, err_conv, err_exact = sorh.solve(N, cfl, iter_max, omega)
+    elif method == "sorhl":
+        U, t, iter_count, res, err_conv, err_exact = sorhl.solve(N, cfl, iter_max, omega)
     else:
         print("invalid method!")
         return 0
@@ -277,13 +281,14 @@ def find_optimal_omega_vs_N(
 
 # number of iterations for optimal omega values scales linearly with N
 
-method = "sornl"
+method = "sorhl"
 cfl = 0.8
 iter_max = 10000
 
-N = 16
+N = 32
 # omega = 0.65443
-omega = 1.0
+# omega = 0.87409
+omega = 0.50
 
 single_state_test(method, N, cfl, iter_max, omega)
 

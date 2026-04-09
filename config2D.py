@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 import numpy as np
 
 @dataclass
 class Config:
     # — user‐set —
-    problem:    str     # 'poisson', 'linear', 'nonlinear'
-    method:     str     # 'parabolic', 'unsplit', 'DS1', 'DS2', 'pADI', 'hADI'
+    problem:    str     # 'poisson', 'toy_linear', 'toy_nonlinear'
+    method:     str     # 'p_unsplit', 'h_unsplit', 'p_ADI', 'h_ADI', etc.
     bc_type:    str     # 'poisson', 'linear_in_x', etc.
 
     Nx:         int     # number of INTERIOR cells (x-direction)
@@ -17,6 +17,11 @@ class Config:
     iter_max:   int     # maximum allowed iterations
 
     norm:       Any     # norm type. options: [1, 2, "fro", np.inf]
+
+    f:          Callable = None     # RHS definition
+    phi_exact:  Callable = None     # function for exact solution calculation
+
+    mg_solver:  str = None      # multigrid algorithm to use (None -> no multigrid)
 
     # — derived —
     xa:         float   = field(init=False)  # left physical boundary (x)
@@ -43,6 +48,10 @@ class Config:
     y:          np.ndarray = field(init=False)  # "        "
 
     U0:         np.ndarray = field(init=False)  # initial state array
+
+    f_all:      np.ndarray = field(init=False)  # exact RHS
+    U_exact:    np.ndarray = field(init=False)  # exact solution (for Poisson problem)
+
 
     def __post_init__(self):
         # 1st quadrant only for Poisson
@@ -97,5 +106,15 @@ class Config:
         # initialize U0
         # self.U0 = np.zeros((self.Nx + (2 * self.ngc), self.Ny + (2 * self.ngc)))
         self.U0 = np.zeros((self.Nx, self.Ny))
+
+        if self.f:
+            # apply f(x, y) over the whole 2D grid
+            X, Y = np.meshgrid(self.x, self.y, indexing='ij')  # shape (Nx+2*ngc, Ny+2*ngc)
+            self.f_all = self.f(X, Y, self.rho0, self.R)
+
+        if self.phi_exact:
+            # set the exact solution on full grid
+            X, Y = np.meshgrid(self.x, self.y, indexing='ij')
+            self.U_exact = self.phi_exact(X, Y, self.rho0, self.R, self.G)
 
 

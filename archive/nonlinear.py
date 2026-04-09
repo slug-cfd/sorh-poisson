@@ -1,12 +1,12 @@
 import numpy as np
-import methods.nl_helpers as nlh
+import methods.ToyProblem.nonlinear.nl_helpers as nlh
 import BC_2D as bc
 
-def parabolic(params):
+def parabolic(config):
     # get parameters from config class
-    cfl, dx, dy, Nx, Ny = params.cfl, params.dx, params.dy, params.Nx, params.Ny
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
-    omega, iter_max = params.omega, params.iter_max
+    cfl, dx, dy, Nx, Ny = config.cfl, config.dx, config.dy, config.Nx, config.Ny
+    ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
+    omega, iter_max = config.omega, config.iter_max
 
     v = 0.5     # nonlinear -> maximum value for stability condition
 
@@ -19,8 +19,8 @@ def parabolic(params):
     rx = dt / (dx ** 2)
     ry = dt / (dy ** 2)
 
-    U = params.U0.copy()
-    bc.update_BCs(U, params)
+    U = config.U0.copy()
+    bc.update_BCs(U, config)
 
     #  error array (one value per iteration)
     err_conv = np.zeros(iter_max)
@@ -35,8 +35,8 @@ def parabolic(params):
         #  store the old solution to measure the steadiness
         U_old = U.copy()
 
-        vx = nlh.get_vx(U, params)
-        vy = nlh.get_vy(U, params)
+        vx = nlh.get_vx(U, config)
+        vy = nlh.get_vy(U, config)
 
         # RED sweep
         for i in range(ib, ie + 1):
@@ -81,7 +81,7 @@ def parabolic(params):
                     U[i, j] = U_old[i, j] + (omega * (U[i, j] - U_old[i, j]))
 
         # update BCs
-        bc.update_BCs(U, params)
+        bc.update_BCs(U, config)
 
         # calculate error
         err = U - U_old
@@ -99,9 +99,9 @@ def parabolic(params):
     # return U, t, iter_count, res, err_conv, err_exact
     return U, t, iter_count, res, err_conv
 
-def x_sweep(U, vx, rx, params):
-    Nx, Ny, omega = params.Nx, params.Ny, params.omega
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+def x_sweep(U, vx, rx, config):
+    Nx, Ny, omega = config.Nx, config.Ny, config.omega
+    ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
 
     U_old = U.copy()
     U_new = U.copy()
@@ -119,12 +119,12 @@ def x_sweep(U, vx, rx, params):
             # SOR update
             U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
 
-    bc.update_BCs(U_new, params)
+    bc.update_BCs(U_new, config)
     return U_new
 
-def y_sweep(U, vy, ry, params):
-    Nx, Ny, omega = params.Nx, params.Ny, params.omega
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+def y_sweep(U, vy, ry, config):
+    Nx, Ny, omega = config.Nx, config.Ny, config.omega
+    ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
 
     U_old = U.copy()
     U_new = U.copy()
@@ -142,17 +142,17 @@ def y_sweep(U, vy, ry, params):
             # SOR update
             U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
 
-    bc.update_BCs(U_new, params)
+    bc.update_BCs(U_new, config)
     return U_new
 
-def DS1(params):
+def DS1(config):
     # get parameters as needed
-    Nx, Ny, dx, dy = params.Nx, params.Ny, params.dx, params.dy
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
-    cfl, iter_max = params.cfl, params.iter_max
+    Nx, Ny, dx, dy = config.Nx, config.Ny, config.dx, config.dy
+    ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
+    cfl, iter_max = config.cfl, config.iter_max
 
-    U = params.U0.copy()
-    bc.update_BCs(U, params)
+    U = config.U0.copy()
+    bc.update_BCs(U, config)
 
     #  error array (one value per iteration)
     err_conv = np.zeros(iter_max)
@@ -166,8 +166,8 @@ def DS1(params):
     while res > threshold and iter_count < iter_max:
         U_init = U.copy()
 
-        vx = nlh.get_vx(U, params)
-        vy = nlh.get_vy(U, params)
+        vx = nlh.get_vx(U, config)
+        vy = nlh.get_vy(U, config)
 
         # use a single dt per timestep
         dt = cfl * np.min([dx / np.abs(vx).max(), dy / np.abs(vy).max()])
@@ -175,10 +175,10 @@ def DS1(params):
         ry = dt / dy
 
         # 1. Solve u_tx = vu_xx: U^n -> U^(n+1/2)
-        U = x_sweep(U, vx, rx, params)
+        U = x_sweep(U, vx, rx, config)
 
         # 2. Solve u_ty = vu_yy: U^(n+1/2) -> U^(n+1)
-        U = y_sweep(U, vy, ry, params)
+        U = y_sweep(U, vy, ry, config)
 
         # calculate error (one full cycle)
         err = U - U_init
@@ -192,14 +192,14 @@ def DS1(params):
 
     return U, t, iter_count, res, err_conv
 
-def DS2(params):
+def DS2(config):
     # get parameters as needed
-    Nx, Ny, dx, dy = params.Nx, params.Ny, params.dx, params.dy
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
-    cfl, iter_max = params.cfl, params.iter_max
+    Nx, Ny, dx, dy = config.Nx, config.Ny, config.dx, config.dy
+    ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
+    cfl, iter_max = config.cfl, config.iter_max
 
-    U = params.U0.copy()
-    bc.update_BCs(U, params)
+    U = config.U0.copy()
+    bc.update_BCs(U, config)
 
     # error array (one value per iteration)
     err_conv = np.zeros(iter_max)
@@ -211,13 +211,13 @@ def DS2(params):
     res = 1e2
 
     ### Step 1: Initial 1/4-step ###
-    vx = nlh.get_vx(U, params)
+    vx = nlh.get_vx(U, config)
 
     dt = 0.5 * cfl * (dx / np.abs(vx).max())
     rx = dt / dx
 
     # initial x-sweep: U^n -> U^(n+1/4)
-    U = x_sweep(U, vx, rx, params)
+    U = x_sweep(U, vx, rx, config)
     t += dt
 
 
@@ -225,18 +225,18 @@ def DS2(params):
     while res > threshold and iter_count < iter_max:
         U_init = U.copy()
 
-        vx = nlh.get_vx(U, params)
-        vy = nlh.get_vy(U, params)
+        vx = nlh.get_vx(U, config)
+        vy = nlh.get_vy(U, config)
 
         dt = cfl * np.min([dx / np.abs(vx).max(), dy / np.abs(vy).max()])
         ry = dt / dy
         rx = dt / dx
 
         # full y-sweep: U^(n+1/4) -> U^(n+3/4)
-        U = y_sweep(U, vy, ry, params)
+        U = y_sweep(U, vy, ry, config)
 
         # full x-sweep: U^(n+3/4) -> U^(n+5/4)
-        U = x_sweep(U, vx, rx, params)
+        U = x_sweep(U, vx, rx, config)
 
         # calculate error (one full cycle)
         err = U - U_init
@@ -249,8 +249,8 @@ def DS2(params):
         iter_count += 1
 
     ### Step 3: Final 3/4-step ###
-    vx = nlh.get_vx(U, params)
-    vy = nlh.get_vy(U, params)
+    vx = nlh.get_vx(U, config)
+    vy = nlh.get_vy(U, config)
 
     dt = cfl * np.min([dx / np.abs(vx).max(), dy / np.abs(vy).max()])
 
@@ -258,10 +258,10 @@ def DS2(params):
     rx = 0.5 * dt / dx  # half-step
 
     # final y-sweep: U^(n+1/4) -> U^(n+3/4)
-    U = y_sweep(U, vy, ry, params)
+    U = y_sweep(U, vy, ry, config)
 
     # final x-sweep: U^(n+3/4) -> U^(n+1)
-    U = x_sweep(U, vx, rx, params)
+    U = x_sweep(U, vx, rx, config)
 
     # since dt is different between step 1 and step 3, we
     # estimate the total dt value between both iterations as
@@ -273,12 +273,12 @@ def DS2(params):
 
     return U, t, iter_count, res, err_conv
 
-def unsplit_update(U, params, update_coeffs):
+def unsplit_update(U, config, update_coeffs):
     U_old = U.copy()
     U_new = U.copy()
 
-    Nx, Ny, dx, dy, omega = params.Nx, params.Ny, params.dx, params.dy, params.omega
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+    Nx, Ny, dx, dy, omega = config.Nx, config.Ny, config.dx, config.dy, config.omega
+    ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
 
     vx, vy, rx, ry = update_coeffs
 
@@ -307,19 +307,19 @@ def unsplit_update(U, params, update_coeffs):
             # SOR update
             U_new[i, j] = U_old[i, j] + (omega * (U_new[i, j] - U_old[i, j]))
 
-    bc.update_BCs(U_new, params)
+    bc.update_BCs(U_new, config)
     return U_new
 
-def unsplit(params):
+def unsplit(config):
     # get parameters from config class
-    cfl, dx, dy, Nx, Ny = params.cfl, params.dx, params.dy, params.Nx, params.Ny
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+    cfl, dx, dy, Nx, Ny = config.cfl, config.dx, config.dy, config.Nx, config.Ny
+    ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
 
-    U = params.U0.copy()
-    bc.update_BCs(U, params)
+    U = config.U0.copy()
+    bc.update_BCs(U, config)
 
     # error array (one value per iteration)
-    err_conv = np.zeros(params.iter_max)
+    err_conv = np.zeros(config.iter_max)
 
     t = 0.0
     iter_count = 0
@@ -327,11 +327,11 @@ def unsplit(params):
     threshold = 1e-7
     res = 1e2
 
-    while res > threshold and iter_count < params.iter_max:
+    while res > threshold and iter_count < config.iter_max:
         U_init = U.copy()
 
-        vx = nlh.get_vx(U, params)
-        vy = nlh.get_vy(U, params)
+        vx = nlh.get_vx(U, config)
+        vy = nlh.get_vy(U, config)
 
         # use a single dt per timestep
         dt = cfl * np.min([dx / np.abs(vx).max(), dy / np.abs(vy).max()])
@@ -341,7 +341,7 @@ def unsplit(params):
         update_coeffs = (vx, vy, rx, ry)
 
         # update U^n -> U^n+1
-        U = unsplit_update(U, params, update_coeffs)
+        U = unsplit_update(U, config, update_coeffs)
 
         # calculate error (one full cycle)
         err = U - U_init

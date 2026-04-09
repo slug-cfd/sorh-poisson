@@ -1,39 +1,39 @@
 import numpy as np
 
-def update_BCs(U, params, phi_exact=None):
+def update_BCs(U, config, phi_exact=None):
     a, b, c, d = 1.0, 2.0, 1.0, 2.0
 
     # update BCs
-    match params.bc_type:
+    match config.bc_type:
         case "poisson":
-            apply_bcs_poisson_2d(U, params, phi_exact)
+            apply_bcs_poisson_2d(U, config, phi_exact)
         case "linear_in_x":
             # BC: U(x, y) = x
-            linear_in_x(U, params.x)
+            linear_in_x(U, config.x)
         case "other_1":
             # BC: spatial oscillations
             coeffs = [a, b, c, d]
-            sinusoidal(U, params.x, coeffs)
+            sinusoidal(U, config.x, coeffs)
         case "other_2":
             # BC: combination (mixed nonlinear functions)
             coeffs = [a, b]
-            combination(U, params.x, coeffs)
+            combination(U, config.x, coeffs)
         case _:
-            print("Unrecognized bc_type: ", params.bc_type)
+            print("Unrecognized bc_type: ", config.bc_type)
 
 
-def get_bcs_poisson_2d(params, phi_exact):
+def get_bcs_poisson_2d(config, phi_exact):
     """
     U: (Nx+2, Ny+2) with 1 ghost layer each side.
     x, y: arrays of length Nx+2, Ny+2 (include interior and ghost cells)
     Reflection (Neumann 0): x=0, y=0
     Dirichlet: x=20R, y=20R using phi_exact
     """
-    x, y, rho0, R, G = (params.x, params.y,
-                        params.rho0, params.R, params.G)
-    # Nx, Ny, dx, dy = (params.Nx, params.Ny, params.dx, params.dy)
-    # ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
-    xa, xb, ya, yb = params.xa, params.xb, params.ya, params.yb
+    x, y, rho0, R, G = (config.x, config.y,
+                        config.rho0, config.R, config.G)
+    # Nx, Ny, dx, dy = (config.Nx, config.Ny, config.dx, config.dy)
+    # ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
+    xa, xb, ya, yb = config.xa, config.xb, config.ya, config.yb
 
     # # Ghost cells: all Dirichlet
     # U[0, :] = phi_exact(xa-dx, y, rho0, R, G)  # x = xa (left)
@@ -82,12 +82,12 @@ def get_bcs_poisson_2d(params, phi_exact):
     phi_yB = phi_exact(x, ya, rho0, R, G)
     phi_yT = phi_exact(x, yb, rho0, R, G)
 
-    BCs = [phi_xL, phi_xR, phi_yB, phi_yT]
+    boundaries = [phi_xL, phi_xR, phi_yB, phi_yT]
 
-    return BCs
+    return boundaries
 
-def apply_bcs_poisson_2d(U, params, boundaries):
-    ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
+def apply_bcs_poisson_2d(U, config, boundaries):
+    ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
     phi_xL, phi_xR, phi_yB, phi_yT = boundaries
 
     # Apply to ghost cells
@@ -110,8 +110,8 @@ def linear_in_x(U, x):
 
     return U
 
-def sinusoidal(U, x, params):
-    a, b, c, d = params
+def sinusoidal(U, x, config):
+    a, b, c, d = config
 
     U[:, 0] = a * np.sin(b * np.pi * x)
     U[:, -1] = 0.0
@@ -121,8 +121,8 @@ def sinusoidal(U, x, params):
     return U
 
 
-def combination(U, x, params):
-    a, b = params
+def combination(U, x, config):
+    a, b = config
 
     U[:, 0] = a * np.sin(b * np.pi * x)
     U[:, -1] = 0.0

@@ -1,10 +1,18 @@
 import time
 import numpy as np
+from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 from problems import poisson2D, nonlinear2D, linear2D
 import config2D
+
+
+problem_map = {
+    'poisson': poisson2D,
+    'toy_nonlinear': nonlinear2D,
+    'toy_linear': linear2D,
+}
 
 problem_name_map = {
     'poisson': "Poisson",
@@ -12,31 +20,128 @@ problem_name_map = {
     'linear': "Linear",
 }
 
-# all 2D methods
-# method_name_map = {
-#     'parabolic': "Poisson (parabolic)",
-#     'unsplit': "Poisson (unsplit)",
-#     'DS1': "Poisson (DS1)",
-#     'DS2': "Poisson (DS2)"
-# }
+method_name_map = {
+    'p_unsplit': "Parabolic/Unsplit",
+    'p_ADI': "Parabolic/ADI",
+    'h_unsplit': "Hyperbolic/Unsplit",
+    'h_ADI': "Hyperbolic/ADI",
+}
 
-def solve(params):
-    problem = params.problem
 
-    if problem == "poisson":
-        U, t, iter_count, res, err_conv = poisson2D.solve(params)
-    elif problem == "nonlinear":
-        U, t, iter_count, res, err_conv = nonlinear2D.solve(params)
-    elif problem == "linear":
-        U, t, iter_count, res, err_conv = linear2D.solve(params)
-    else:
-        print("invalid problem!")
+def solve_p2D(config, plot=False):
+    if config.problem != "poisson" or config.mg_solver is not None:
+        print("invalid problem for poisson solver!")
         return 0
+
+    start = time.perf_counter()
+
+    U, t, iter_count, histories = poisson2D.solve_all(config)
+
+    end = time.perf_counter()
+    elapsed = end - start
+
+    ### histories structure ###
+    # histories = {
+    #     "update": np.array(update_hist),
+    #     "residual": np.array(residual_hist),
+    #     "exact": np.array(exact_hist),
+    #     "best_exact": best_exact,
+    #     "best_iter": best_iter,
+    # }
+
+    conv_history = histories["exact"]
+    res_final = conv_history[-1]
+
+    print("method:", config.method)
+    print("iterations:", iter_count)
+    print("final residual: ", res_final)
+    print(f"best residual: {histories["best_exact"]} | iteration {histories["best_iter"]}")
+    # print("time t: ", t)
+    print("elapsed time: ", elapsed)
+
+
+    if plot:
+        plot_solution(U, iter_count, conv_history, config)
+
+    return U, t, iter_count, histories
+
+
+def solve_p2d_multigrid(config, plot=False):
+    if config.problem != "poisson" or config.mg_solver is None:
+        print("invalid problem for poisson solver!")
+        return 0
+
+    U, t, cycle_count, histories = poisson2D.solve_all(config)
+
+    ### histories structure ###
+    # histories = {
+    #     "update": np.array(update_hist),
+    #     "residual": np.array(residual_hist),
+    #     "exact": np.array(exact_hist),
+    #     "cycle_time": np.array(cycle_time_hist),
+    #     "best_exact": best_exact,
+    #     "best_iter": best_iter,
+    #     "elapsed": elapsed,
+    #     "cycles": iter_count,
+    #     "U_best": U_best,
+    # }
+
+    conv_history = histories["exact"]
+    res_final = conv_history[-1]
+
+    print()
+    print("method:", config.method)
+    print("total time: ", t)
+    print("cycle count:", cycle_count)
+    print("final residual: ", res_final)
+
+    if plot:
+        plot_solution(U, cycle_count, conv_history, config)
+
+    return U, t, cycle_count, histories
+
+
+def solve_nl2D(config, plot=False):
+    if config.problem != "nonlinear":
+        print("invalid problem for poisson solver!")
+        return 0
+
+    U, t, iter_count, histories = nonlinear2D.solve_all(config)
+
+    ### histories structure ###
+    # histories = {
+    #     "update": np.array(update_hist),
+    #     "U_res_min": np.array(U_res_min),
+    #     "best_update": best_update,
+    #     "best_iter": best_iter,
+    # }
+
+    print("method:", config.method)
+    print("iterations:", iter_count)
+    print("final residual: ", histories["update_hist"][-1])
+    print(f"best residual: {histories["best_update"]} | iteration {histories["best_iter"]}")
+    print("time t: ", t)
+
+    if plot:
+        plot_solution(U, iter_count, histories["update_hist"], config)
+
+    return U, t, iter_count, histories
+
+
+def solve_l2D(config, plot=False):
+    if config.problem != "linear":
+        print("invalid problem for poisson solver!")
+        return 0
+
+    U, t, iter_count, res, err_conv = linear2D.solve(config)
+
+    if plot:
+        plot_solution(U, iter_count, err_conv, config)
 
     return U, t, iter_count, res, err_conv
 
 
-def plot(U, iter_count, err_conv, params):
+def plot_solution(U, iter_count, err_conv, params):
     print(f"Plotting solution...")
 
     problem_name = problem_name_map[params.problem]
@@ -122,186 +227,135 @@ def plot_exact_solution(params):
     plt.show()
 
 
-def time_compare(params1, params2):
+def time_compare(config1, config2):
     start_time = time.perf_counter()
 
-    solve(params1)
+    problem_map[config1.problem].solve_all(config1)
 
     end_time = time.perf_counter()
     time1 = end_time - start_time
 
-    print(f"total time ({params1.method}): {time1:.8f} seconds")
+    if config1.mg_solver is not None:
+        print(f"total time ({config1.method} with multigrid): {time1:.8f} seconds")
+    else:
+        print(f"total time ({config1.method}): {time1:.8f} seconds")
 
     start_time = time.perf_counter()
 
-    solve(params2)
+    problem_map[config1.problem].solve_all(config2)
 
     end_time = time.perf_counter()
     time2 = end_time - start_time
 
-    print(f"total time ({params2.method}): {time2:.8f} seconds")
+    if config2.mg_solver is not None:
+        print(f"total time ({config2.method} with multigrid): {time2:.8f} seconds")
+    else:
+        print(f"total time ({config2.method}): {time2:.8f} seconds")
 
     max_time = max(time1, time2)
     min_time = min(time1, time2)
 
     print(f"speedup: {max_time / min_time:.8f}")
-    print()
+    # print()
 
 
-### Old Notes ###
-# convergence is weird for sornl2 (for nonlinear BCs)
-# they all seemingly need ~200 iterations to converge
-# but the residual value stays at a fixed value (~0.1)
-# meaning the solution likely fluctuates around two fixed points
-# iter_max = 200
+solver_map = {
+    "poisson_base": solve_p2D,
+    "poisson_mg": solve_p2d_multigrid,
+    "toy_nonlinear": solve_nl2D,
+    "toy_linear": solve_l2D,
+}
 
-# iteration counts for Nx=Ny=16, sinusoidal BCs (x2?)
-#   jl2                 -> 272 iterations
-#   gsl2 (with r/b gs)  -> 173 iterations
-#   sorl2 (omega=1.50)  -> 118 iterations
+problem = "poisson"     # test problem
+mg_solver = "fmg"       # multigrid solver ("rep_v_cycles", "fmg"; `None` for no multigrid)
 
-# -> similar results for linear solution profile (U(x, y) = x)
+solver_name = ""    # do not modify this
+if problem == "poisson":
+    if mg_solver is not None:
+        solver_name = "poisson_mg"
+    else:
+        solver_name = "poisson_base"
+else:
+    solver_name = problem
 
-# all BCs that I tested for SOR 2D (linear and nonlinear)
-# seem to have minimum iterations around omega = 1.5~1.55
-# and become unstable around omega = 1.6
-
-# omega = 1.60    # sornl2 optimal -> 396 iterations
-# omega = 0.80    # sorh2 optimal  -> 78 iterations
-# omega = 0.84    # sorh2u optimal -> 123 iterations
-
-# sorh2 best: 78 iterations (omega=0.8, DS1)
-# DS1 and DS2 perform nearly identically
-# DS1/2: significantly faster, slightly smaller omega
-
-# unsplit method (sorh2u) still performs much better than
-# parabolic version (sornl2), but slightly worse than the
-# split version (sorh2)
-
-# HOWEVER: while the solution structures between sornl2
-# and sorh2 look slightly different, the solutions for
-# sornl2 and sorh2u look absolutely identical.
-
-
-# method = "sornl2"
-# omega = 1.60
-
-# N = 16
-# method = "sorh2"
-# omega = 0.80
-
-# N = 32 -> crashes at cfl ~ 1.323
-# method = "sorh2"
-# omega = 0.86
-
-# N = 16
-# method = "sorh2_unsplit"
-# omega = 0.84
-
-# N = 32 -> crashes at cfl ~ 1.23
-# method = "sorh2_unsplit"
-# omega = 0.89
-
-# for N = 32, both split and unsplit versions start showing signs of instability
-# at similar cfl values, both at cfl~1.2. unsplit version becomes unstable
-# slightly sooner, with the solution structure for the split version staying
-# mostly intact until cfl~1.323, but still, both are unstable after cfl~1.2.
-
-# N = 64 case is very similar for both split and unsplit
-# unstable cfl value does not change significantly for either method
-
-# it seems like for increasing N, the point at which the methods are unstable
-# actually doesn't change much. for N = 16, 32, 64, the stability threshold is
-# somewhere around cfl~1.2-1.4.
-
-# omega = 0.0741  # N=32 -> 366 iterations, res = 0.4493928629873612
-# omega = 0.0196  # N=64 -> 3265 iterations, res = 0.44457492162560386
-
-# omega = 0.1039  # N=32, dt/=4 -> 163 iterations, res = 0.44940645391034956
-
-# !! parabolic solver with omega=2.30 gets 67 iterations!
-#    -> also seemingly stable for all N, which hyperbolic solver is not!
-# !!!! parabolic w/ omega=2.290 and modified dt gets 37 iterations with very low residual!!
-# omega = 2.309     # N = 128
-
-
-problem = "poisson"
+solver = solver_map[solver_name]
 
 if problem == "poisson":
     bc_type = "poisson"
 else:
     bc_type = "linear_in_x"
 
-# method = "parabolic_jacobi"
-# omega = 0.8
-
-Nx = 32
-Ny = 32
+Nx = 64
+Ny = 64
 cfl = 0.8
-iter_max = 10000
-
-# DS1/2 are runnable but give flawed results.
-# pADI and hADI are the ADI implementations.
-methods = ["parabolic", "unsplit", "DS1", "DS2", "pADI", "hADI"]
-
-# Poisson parameters (N=32)
-omegas_p = [2.292, 0.919, 0.915, 0.920, 1.00, 0.09]
-
-# hyperbolic ADI is very sensitive to the choice of dt and omega.
-# go to the hyperbolic method methods/ADI to change dt_factor.
-# the following values gave the best results for hADI from my testing.
-# leapfrog: dt_factor = 13.0, omega = 0.09
-# bdf1: dt_factor = 6.0, omega = 0.07
-
-# N = 32 (optimal omega values) (explicit methods)
-# -> parabolic: 2.292 -> 71 iterations
-# -> hyperbolic: 0.919 -> 93 iterations
-
-# Nonlinear parameters (for toy problem) (N=32)
-# omegas_n = [1.55, 0.82, 0.80, 0.80]
-
-# use this to set the method (index of "methods" array)
-m = 5
-
+iter_max = 4000
 norm = "fro"
 
-params = config2D.Config(
+methods = {
+    "poisson_base": ["p_unsplit", "p_ADI", "h_unsplit", "h_ADI"],
+
+    "poisson_mg": ["p_unsplit", "p_ADI", "h_unsplit", "h_ADI"],
+
+    "toy_nonlinear": ["p_unsplit", "h_unsplit", "DS1", "DS2"],
+
+    "toy_linear": [],
+}
+
+# indices of array within `methods`
+m1 = 0      # config1
+m2 = 0      # config2
+
+
+# h_unsplit (N=32, weighted hybrid): a = b = 0.8: 0.687
+# p_unsplit (N=32, non-multigrid): omega 2.294
+
+# p_unsplit multigrid vs. non-multigrid comparison (N=64):
+# -> non-multigrid:     omega = 2.390   -> ~1.1s
+# -> multigrid (fmg):   omega = 2.300   -> ~0.65s   -> almost 2x speedup!
+
+omegas = {
+    "poisson_base": [2.390, 1.81, 0.687, 0.25],
+
+    "poisson_mg": [2.330, 1.0, 0.670, 1.0],
+
+    "toy_nonlinear": [1.55, 0.82, 0.80, 0.80],  # N=32 optimal?
+
+    "toy_linear": [],
+}
+
+config1 = config2D.Config(
     problem=problem,
-    method=methods[m],
+    method=methods[solver_name][m1],
     bc_type=bc_type,
     Nx=Nx,
     Ny=Ny,
     cfl=cfl,
-    omega=omegas_p[m],
+    omega=omegas[solver_name][m1],
     iter_max=iter_max,
-    norm=norm
+    norm=norm,
+    f=poisson2D.f,
+    phi_exact=poisson2D.phi_exact,
+    mg_solver=mg_solver,
 )
 
-U, t, iter_count, res, err_conv = solve(params)
-
-print("method:", params.method)
-print("iterations:", iter_count)
-print("final residual: ", res)
-print("time t: ", t)
-
-plot(U, iter_count, err_conv, params)
-
-# plot phi_exact for Poisson test eqn
-plot_exact_solution(params)
-
-params2 = config2D.Config(
+config2 = config2D.Config(
     problem=problem,
-    method=methods[4],
+    method=methods[solver_name][m2],
     bc_type=bc_type,
     Nx=Nx,
     Ny=Ny,
     cfl=cfl,
-    omega=omegas_p[4],
+    omega=omegas[solver_name][m2],
     iter_max=iter_max,
-    norm=norm
+    norm=norm,
+    f=poisson2D.f,
+    phi_exact=poisson2D.phi_exact,
+    mg_solver=mg_solver,
 )
+
+solver(config1, plot=True)
 
 # example comparison
-print("\n---timed test---")
-time_compare(params, params2)
+# print("\n---timed test---")
+# time_compare(config, config2)
 
