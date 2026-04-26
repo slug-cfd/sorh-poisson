@@ -1,0 +1,29 @@
+{
+    "_comment": "Sample configuration for a 1D iterative method run.",
+
+    "problem": "nonlinear",
+    "method": "sor_nonlinear_hyperbolic",
+
+    "N": 64,
+    "cfl": 0.8,
+    "omega": 0.93,
+    "iter_max": 5000,
+    "norm": 2,
+
+    "dt_factor": 1.0,
+    "xa": 0.0,
+    "xb": 1.0,
+    "left_bc": 0.0,
+    "right_bc": 1.0,
+
+    "linear_v": 0.5,
+    "nonlinear_vmax": 0.5,
+    "hyperbolic_linear_v": 1.0,
+
+    "solver_config": {
+        "tol_update": 1e-7,
+        "tol_exact": null,
+        "res_max": 1e8,
+        "stop_on_exact": false
+    }
+}
