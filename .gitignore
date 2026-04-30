@@ -28,5 +28,11 @@ env/
 *.tmp
 *.swp
 
+# Generated experiment outputs
+/results/
+/1D/results/
+/2D/results/
+
 # Python packaging locks (optional depending on workflow)
 # uv.lock
+/archive/
