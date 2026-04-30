@@ -1,12 +1,12 @@
 {
     "_comment": "Sample configuration for a 1D iterative method run.",
 
-    "problem": "nonlinear",
-    "method": "sor_nonlinear_hyperbolic",
+    "problem": "linear",
+    "method": "sor_linear_hyperbolic",
 
-    "N": 64,
+    "N": 16,
     "cfl": 0.8,
-    "omega": 0.93,
+    "omega": 0.86,
     "iter_max": 5000,
     "norm": 2,
 

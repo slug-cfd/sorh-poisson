@@ -2,14 +2,17 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import sys
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config1D import Config1D, Solver1DConfig
 from solver1D import run_simulation
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 
 SOR_METHODS = (
@@ -35,6 +38,9 @@ FIELDNAMES = (
     "N",
     "cfl",
     "omega",
+    "linear_v",
+    "nonlinear_vmax",
+    "hyperbolic_linear_v",
     "tol_update",
     "iter_max",
     "converged",
@@ -68,6 +74,7 @@ def make_config(
     iter_max=20000,
     omega=0.9,
     cfl=0.8,
+    v=0.5,
     tol_update=1e-7,
     res_max=1e8,
 ):
@@ -80,6 +87,9 @@ def make_config(
         iter_max=iter_max,
         norm=2,
         solver_config=Solver1DConfig(tol_update=tol_update, res_max=res_max),
+        linear_v=v,
+        nonlinear_vmax=v,
+        hyperbolic_linear_v=v,
     )
 
 
@@ -106,6 +116,9 @@ def _row_from_record(record):
         "N": config.N,
         "cfl": config.cfl,
         "omega": config.omega,
+        "linear_v": config.linear_v,
+        "nonlinear_vmax": config.nonlinear_vmax,
+        "hyperbolic_linear_v": config.hyperbolic_linear_v,
         "tol_update": config.solver_config.tol_update,
         "iter_max": config.iter_max,
         "converged": record.results.converged,
@@ -121,13 +134,14 @@ def _row_from_record(record):
     }
 
 
-def run_case(method, N, omega=1.0, iter_max=20000, cfl=0.8, tol_update=1e-7):
+def run_case(method, N, omega=1.0, iter_max=20000, cfl=0.8, v=0.5, tol_update=1e-7):
     config = make_config(
         method=method,
         N=N,
         omega=omega,
         iter_max=iter_max,
         cfl=cfl,
+        v=v,
         tol_update=tol_update,
     )
     _, _, _, _, record = run_simulation(config)
@@ -225,10 +239,11 @@ def _refinement_omegas(coarse_rows, method, N, omega_step):
 
 def generate_experiment(
     output_dir=None,
-    Ns=(16, 32, 64),
+    Ns=(16, 32, 64, 128),
     tol_update=1e-7,
     iter_max=20000,
     cfl=0.8,
+    v=0.5,
     omega_min=0.2,
     omega_max=4.0,
     omega_step=0.2,
@@ -242,6 +257,8 @@ def generate_experiment(
         "tol_update": tol_update,
         "iter_max": iter_max,
         "cfl": cfl,
+        "v": v,
+        "velocity_note": "linear_v, nonlinear_vmax, and hyperbolic_linear_v are all pinned to v.",
         "omega_min": omega_min,
         "omega_max": omega_max,
         "omega_step": omega_step,
@@ -260,6 +277,7 @@ def generate_experiment(
                     omega=1.0,
                     iter_max=iter_max,
                     cfl=cfl,
+                    v=v,
                     tol_update=tol_update,
                 )
             )
@@ -277,6 +295,7 @@ def generate_experiment(
                         omega=omega,
                         iter_max=iter_max,
                         cfl=cfl,
+                        v=v,
                         tol_update=tol_update,
                     )
                 )
@@ -293,6 +312,7 @@ def generate_experiment(
                         omega=omega,
                         iter_max=iter_max,
                         cfl=cfl,
+                        v=v,
                         tol_update=tol_update,
                     )
                 )
@@ -307,7 +327,9 @@ def main():
     parser.add_argument("--output-dir", default=str(RESULTS_DIR / "sor_performance"))
     parser.add_argument("--tol-update", type=float, default=1e-7)
     parser.add_argument("--iter-max", type=int, default=20000)
-    parser.add_argument("--Ns", type=int, nargs="+", default=[16, 32, 64])
+    parser.add_argument("--Ns", type=int, nargs="+", default=[16, 32, 64, 128])
+    parser.add_argument("--cfl", type=float, default=0.8)
+    parser.add_argument("--v", type=float, default=0.5)
     parser.add_argument("--omega-min", type=float, default=0.2)
     parser.add_argument("--omega-max", type=float, default=4.0)
     parser.add_argument("--omega-step", type=float, default=0.2)
@@ -318,6 +340,8 @@ def main():
         Ns=tuple(args.Ns),
         tol_update=args.tol_update,
         iter_max=args.iter_max,
+        cfl=args.cfl,
+        v=args.v,
         omega_min=args.omega_min,
         omega_max=args.omega_max,
         omega_step=args.omega_step,

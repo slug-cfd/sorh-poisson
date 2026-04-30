@@ -1,7 +1,7 @@
 def get_params(config):
     v = config.hyperbolic_linear_v
     dt = config.dt_factor * config.cfl * (config.dx / v)
-    r = dt / config.dx
+    r = v * dt / config.dx
     return {"v": v, "dt": dt, "r": r}
 
 

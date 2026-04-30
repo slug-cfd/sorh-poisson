@@ -1,16 +1,20 @@
 import argparse
 import csv
+import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.colors import BoundaryNorm, ListedColormap
 import numpy as np
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
 
 PROBLEMS = ("linear", "nonlinear")
 SCHEMES = ("parabolic", "hyperbolic")
+PLOT_DPI = 400
+MARKER_SIZE = 4
 
 
 def _read_csv(path):
@@ -25,6 +29,9 @@ def _convert_row(row):
     for key in (
         "cfl",
         "omega",
+        "linear_v",
+        "nonlinear_vmax",
+        "hyperbolic_linear_v",
         "tol_update",
         "elapsed_sec",
         "final_update",
@@ -32,7 +39,8 @@ def _convert_row(row):
         "best_exact",
         "pseudo_time",
     ):
-        converted[key] = float(converted[key])
+        if key in converted and converted[key] != "":
+            converted[key] = float(converted[key])
     for key in ("converged", "stable"):
         converted[key] = converted[key] == "True"
     return converted
@@ -40,6 +48,10 @@ def _convert_row(row):
 
 def _method(problem, scheme):
     return f"sor_{problem}_{scheme}"
+
+
+def _problem_for_method_name(method):
+    return "nonlinear" if "nonlinear" in method else "linear"
 
 
 def _method_label(method):
@@ -65,11 +77,16 @@ def _finite_rows(rows):
     ]
 
 
+def _successful_rows(rows):
+    return [
+        row for row in _finite_rows(rows)
+        if row["converged"] and row["stable"]
+    ]
+
+
 def _best_rows(rows):
     best = {}
-    for row in _finite_rows(rows):
-        if not row["converged"] or not row["stable"]:
-            continue
+    for row in _successful_rows(rows):
         key = (row["problem"], row["method"], row["N"])
         current = best.get(key)
         if current is None or (row["iter_count"], row["elapsed_sec"]) < (
@@ -138,14 +155,30 @@ def equal_omega_table(baseline_rows):
         hyp = methods.get("hyperbolic")
         if par is None or hyp is None:
             continue
-        speedup_iter = par["iter_count"] / hyp["iter_count"] if hyp["iter_count"] else np.inf
-        speedup_time = par["elapsed_sec"] / hyp["elapsed_sec"] if hyp["elapsed_sec"] else np.inf
+        comparable = (
+            par["converged"]
+            and par["stable"]
+            and hyp["converged"]
+            and hyp["stable"]
+        )
+        speedup_iter = (
+            par["iter_count"] / hyp["iter_count"]
+            if comparable and hyp["iter_count"]
+            else None
+        )
+        speedup_time = (
+            par["elapsed_sec"] / hyp["elapsed_sec"]
+            if comparable and hyp["elapsed_sec"]
+            else None
+        )
         rows.append(
             [
                 problem,
                 N,
                 par["iter_count"],
+                par["reason"],
                 hyp["iter_count"],
+                hyp["reason"],
                 _format_float(speedup_iter, 3),
                 _format_float(par["elapsed_sec"], 4),
                 _format_float(hyp["elapsed_sec"], 4),
@@ -157,12 +190,64 @@ def equal_omega_table(baseline_rows):
             "Problem",
             "N",
             "Parabolic Iters",
+            "Parabolic Reason",
             "Hyperbolic Iters",
+            "Hyperbolic Reason",
             "Iter Ratio P/H",
             "Parabolic Sec",
             "Hyperbolic Sec",
             "Time Ratio P/H",
         ],
+        rows,
+    )
+
+
+def baseline_vs_sor_table(baseline_rows, sor_rows):
+    best = _best_rows(sor_rows)
+    rows = []
+    baseline_by_key = {
+        (row["problem"], row["method"], row["N"]): row
+        for row in _finite_rows(baseline_rows)
+    }
+
+    for problem in PROBLEMS:
+        Ns = sorted(
+            {
+                row["N"]
+                for row in baseline_rows + sor_rows
+                if row["problem"] == problem
+            }
+        )
+        methods = (
+            f"jacobi_{problem}_parabolic",
+            f"gs_{problem}_parabolic",
+            _method(problem, "parabolic"),
+            _method(problem, "hyperbolic"),
+        )
+        for N in Ns:
+            for method in methods:
+                if method.startswith("sor_"):
+                    row = best.get((problem, method, N))
+                else:
+                    row = baseline_by_key.get((problem, method, N))
+                if row is None:
+                    rows.append([problem, N, _method_label(method), "-", "-", "-", "-"])
+                    continue
+
+                rows.append(
+                    [
+                        problem,
+                        N,
+                        _method_label(method),
+                        _format_float(row["omega"], 4) if method.startswith("sor_") else "-",
+                        row["iter_count"],
+                        _format_float(row["elapsed_sec"], 4),
+                        row["reason"],
+                    ]
+                )
+
+    return _markdown_table(
+        ["Problem", "N", "Method", "Omega*", "Iters", "Seconds", "Reason"],
         rows,
     )
 
@@ -253,23 +338,16 @@ def _plot_omega_metric(sor_rows, problem, N, metric, ylabel, output_path):
             ],
             key=lambda row: row["omega"],
         )
-        converged = [row for row in rows if row["converged"] and row["stable"]]
-        non_converged = [row for row in rows if not (row["converged"] and row["stable"])]
+        converged = _successful_rows(rows)
 
         if converged:
             ax.plot(
                 [row["omega"] for row in converged],
                 [row[metric] for row in converged],
                 marker="o",
+                markersize=MARKER_SIZE,
                 linewidth=1.5,
-                label=f"{scheme} converged",
-            )
-        if non_converged:
-            ax.scatter(
-                [row["omega"] for row in non_converged],
-                [row[metric] for row in non_converged],
-                marker="x",
-                label=f"{scheme} not converged/unstable",
+                label=scheme,
             )
 
     ax.set_title(f"{problem.title()} SOR, N={N}")
@@ -280,7 +358,7 @@ def _plot_omega_metric(sor_rows, problem, N, metric, ylabel, output_path):
     if metric in ("iter_count", "elapsed_sec"):
         ax.set_yscale("log")
     fig.tight_layout()
-    fig.savefig(output_path, dpi=180)
+    fig.savefig(output_path, dpi=PLOT_DPI)
     plt.close(fig)
 
 
@@ -298,9 +376,27 @@ def _plot_optimal_vs_N(sor_rows, output_dir):
             if not rows:
                 continue
             Ns = [row["N"] for row in rows]
-            axes[0].plot(Ns, [row["omega"] for row in rows], marker="o", label=scheme)
-            axes[1].plot(Ns, [row["iter_count"] for row in rows], marker="o", label=scheme)
-            axes[2].plot(Ns, [row["elapsed_sec"] for row in rows], marker="o", label=scheme)
+            axes[0].plot(
+                Ns,
+                [row["omega"] for row in rows],
+                marker="o",
+                markersize=MARKER_SIZE,
+                label=scheme,
+            )
+            axes[1].plot(
+                Ns,
+                [row["iter_count"] for row in rows],
+                marker="o",
+                markersize=MARKER_SIZE,
+                label=scheme,
+            )
+            axes[2].plot(
+                Ns,
+                [row["elapsed_sec"] for row in rows],
+                marker="o",
+                markersize=MARKER_SIZE,
+                label=scheme,
+            )
 
         axes[0].set_ylabel("omega*")
         axes[1].set_ylabel("iterations at omega*")
@@ -313,11 +409,149 @@ def _plot_optimal_vs_N(sor_rows, output_dir):
         axes[2].set_yscale("log")
         fig.suptitle(f"{problem.title()} optimal SOR scaling")
         fig.tight_layout()
-        fig.savefig(output_dir / f"optimal_scaling_{problem}.png", dpi=180)
+        fig.savefig(output_dir / f"optimal_scaling_{problem}.png", dpi=PLOT_DPI)
         plt.close(fig)
 
 
-def make_plots(sor_rows, output_dir):
+def _plot_stability_maps(sor_rows, output_dir):
+    cmap = ListedColormap(["#d73027", "#fee08b", "#1a9850"])
+    norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], cmap.N)
+    labels = ["unstable", "stable, not converged", "stable and converged"]
+
+    for problem in PROBLEMS:
+        for scheme in SCHEMES:
+            method = _method(problem, scheme)
+            rows = [
+                row for row in sor_rows
+                if row["problem"] == problem and row["method"] == method
+            ]
+            if not rows:
+                continue
+
+            Ns = sorted({row["N"] for row in rows})
+            omegas = sorted({row["omega"] for row in rows})
+            omega_index = {omega: idx for idx, omega in enumerate(omegas)}
+            N_index = {N: idx for idx, N in enumerate(Ns)}
+            status = np.full((len(Ns), len(omegas)), np.nan)
+
+            for row in rows:
+                value = 2 if row["stable"] and row["converged"] else 1 if row["stable"] else 0
+                status[N_index[row["N"]], omega_index[row["omega"]]] = value
+
+            fig, ax = plt.subplots(figsize=(9, 3.8))
+            image = ax.imshow(
+                status,
+                aspect="auto",
+                interpolation="nearest",
+                cmap=cmap,
+                norm=norm,
+            )
+            ax.set_title(f"{problem.title()} {scheme} SOR stability")
+            ax.set_xlabel("omega")
+            ax.set_ylabel("N")
+            ax.set_yticks(np.arange(len(Ns)))
+            ax.set_yticklabels(Ns)
+
+            max_ticks = 12
+            tick_step = max(1, int(np.ceil(len(omegas) / max_ticks)))
+            tick_positions = np.arange(0, len(omegas), tick_step)
+            ax.set_xticks(tick_positions)
+            ax.set_xticklabels(
+                [f"{omegas[idx]:.3g}" for idx in tick_positions],
+                rotation=45,
+                ha="right",
+            )
+
+            cbar = fig.colorbar(image, ax=ax, ticks=[0, 1, 2])
+            cbar.ax.set_yticklabels(labels)
+            fig.tight_layout()
+            fig.savefig(output_dir / f"stability_map_{problem}_{scheme}.png", dpi=PLOT_DPI)
+            plt.close(fig)
+
+
+def _plot_baseline_vs_sor_N(baseline_rows, sor_rows, output_dir):
+    best = _best_rows(sor_rows)
+    baseline_methods = (
+        "jacobi_linear_parabolic",
+        "gs_linear_parabolic",
+        "jacobi_nonlinear_parabolic",
+        "gs_nonlinear_parabolic",
+    )
+
+    for problem in PROBLEMS:
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+        methods = [
+            method for method in baseline_methods
+            if _problem_for_method_name(method) == problem
+        ]
+        for method in methods:
+            rows = sorted(
+                [
+                    row for row in _successful_rows(baseline_rows)
+                    if row["problem"] == problem and row["method"] == method
+                ],
+                key=lambda row: row["N"],
+            )
+            if not rows:
+                continue
+            Ns = [row["N"] for row in rows]
+            label = _method_label(method)
+            axes[0].plot(
+                Ns,
+                [row["iter_count"] for row in rows],
+                marker="o",
+                markersize=MARKER_SIZE,
+                label=label,
+            )
+            axes[1].plot(
+                Ns,
+                [row["elapsed_sec"] for row in rows],
+                marker="o",
+                markersize=MARKER_SIZE,
+                label=label,
+            )
+
+        for scheme in SCHEMES:
+            method = _method(problem, scheme)
+            rows = [
+                best[(problem, method, N)]
+                for N in sorted({row["N"] for row in sor_rows if row["problem"] == problem})
+                if (problem, method, N) in best
+            ]
+            if not rows:
+                continue
+            Ns = [row["N"] for row in rows]
+            label = f"SOR {scheme} (best omega)"
+            axes[0].plot(
+                Ns,
+                [row["iter_count"] for row in rows],
+                marker="o",
+                markersize=MARKER_SIZE,
+                label=label,
+            )
+            axes[1].plot(
+                Ns,
+                [row["elapsed_sec"] for row in rows],
+                marker="o",
+                markersize=MARKER_SIZE,
+                label=label,
+            )
+
+        axes[0].set_ylabel("iterations")
+        axes[1].set_ylabel("seconds")
+        for ax in axes:
+            ax.set_xlabel("N")
+            ax.set_xscale("log", base=2)
+            ax.set_yscale("log")
+            ax.grid(True, which="both", alpha=0.35)
+            ax.legend(fontsize=7)
+        fig.suptitle(f"{problem.title()} baseline vs optimized SOR")
+        fig.tight_layout()
+        fig.savefig(output_dir / f"baseline_vs_sor_{problem}.png", dpi=PLOT_DPI)
+        plt.close(fig)
+
+
+def make_plots(sor_rows, output_dir, baseline_rows=None):
     plot_dir = output_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -341,6 +575,9 @@ def make_plots(sor_rows, output_dir):
             )
 
     _plot_optimal_vs_N(sor_rows, plot_dir)
+    _plot_stability_maps(sor_rows, plot_dir)
+    if baseline_rows is not None:
+        _plot_baseline_vs_sor_N(baseline_rows, sor_rows, plot_dir)
     return plot_dir
 
 
@@ -348,21 +585,35 @@ def write_tables(output_dir):
     output_dir = Path(output_dir)
     baseline_rows = _read_csv(output_dir / "baseline_omega1.csv")
     sor_rows = _read_csv(output_dir / "sor_omega_all.csv")
+    config_path = output_dir / "experiment_config.json"
+    metadata = json.loads(config_path.read_text()) if config_path.exists() else {}
+    v_text = _format_float(metadata.get("v"), 3)
 
     report = [
         "# 1D SOR Performance Summary",
+        "",
+        f"All generated tests use `v = {v_text}` for `linear_v`, `nonlinear_vmax`, and `hyperbolic_linear_v`.",
         "",
         "## Baseline at omega = 1",
         baseline_table(baseline_rows),
         "",
         "## Parabolic vs Hyperbolic at equal omega = 1",
+        "Ratios are only shown when both methods converged stably.",
         equal_omega_table(baseline_rows),
+        "",
+        "## Baseline vs optimized SOR by N",
+        baseline_vs_sor_table(baseline_rows, sor_rows),
         "",
         "## Parabolic vs Hyperbolic at corresponding optimal omega",
         optimal_table(sor_rows),
         "",
         "## Stability and convergence ranges",
         stability_table(sor_rows),
+        "",
+        "## Generated visual checks",
+        "- `plots/stability_map_{problem}_{scheme}.png` shows stability and convergence versus N and omega.",
+        "- `plots/baseline_vs_sor_{problem}.png` compares Jacobi/Gauss-Seidel with optimized parabolic and hyperbolic SOR versus N.",
+        "- `plots/omega_vs_iterations_{problem}_n{N}.png` and `plots/omega_vs_time_{problem}_n{N}.png` include only stable converged SOR runs.",
         "",
     ]
 
@@ -373,8 +624,9 @@ def write_tables(output_dir):
 
 def analyze_experiment(output_dir):
     output_dir = Path(output_dir)
+    baseline_rows = _read_csv(output_dir / "baseline_omega1.csv")
     sor_rows = _read_csv(output_dir / "sor_omega_all.csv")
-    plot_dir = make_plots(sor_rows, output_dir)
+    plot_dir = make_plots(sor_rows, output_dir, baseline_rows=baseline_rows)
     report_path = write_tables(output_dir)
     return report_path, plot_dir
 

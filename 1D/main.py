@@ -6,7 +6,7 @@ import numpy as np
 
 from config1D import method_name_map
 from load_config1D import config_from_json
-from plot1D import plot_solution
+from diagnostics.plot1D import plot_solution
 from solver1D import run_simulation
 
 
