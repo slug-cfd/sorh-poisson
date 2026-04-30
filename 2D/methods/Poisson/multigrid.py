@@ -6,7 +6,7 @@ import time
 
 from methods.Poisson.poisson_helpers import *
 import BC_2D as bc
-from config2D import Config
+from config import Config
 
 # ============================================================
 # Basic utilities
@@ -93,7 +93,7 @@ def restrict_injection(F: np.ndarray) -> np.ndarray:
 
     Assumes odd-numbered interior counts so that coarsening by factor ~2 makes sense.
 
-    Fine interior indices: 1..N
+    Fine interior indices: 1...N
     Coarse interior samples every other fine point.
     """
     Nc_x = (F.shape[0] - 2 + 1) // 2
@@ -322,6 +322,7 @@ def build_coarse_config(fine_config, coarse_f_all, nx_coarse=None, ny_coarse=Non
 
     coarse_config = Config(
         problem=fine_config.problem,
+        poisson_problem=fine_config.poisson_problem,
         method=fine_config.method,
         bc_type=fine_config.bc_type,
         Nx=nx_coarse,
@@ -332,6 +333,9 @@ def build_coarse_config(fine_config, coarse_f_all, nx_coarse=None, ny_coarse=Non
         norm=fine_config.norm,
         f=fine_config.f,
         phi_exact=fine_config.phi_exact,
+        mg_config=fine_config.mg_config,
+        h_unsplit_config=fine_config.h_unsplit_config,
+        multigrid=fine_config.multigrid,
     )
 
     # Override the automatically built RHS with the one actually needed
@@ -371,8 +375,6 @@ def coarse_relaxation_solve(
     boundaries,
     config,
     full_sweep,
-    max_sweeps: int = 100,
-    tol: float = 1e-12,
 ):
     """
     Approximate coarse solve by repeated smoothing.
@@ -380,6 +382,9 @@ def coarse_relaxation_solve(
     This is the easiest initial implementation and is often sufficient for a first
     multigrid version.
     """
+    mg = config.mg_config
+    max_sweeps, tol = mg.coarse_max_sweeps, mg.coarse_tol
+
     U = config.U0.copy()
 
     for _ in range(max_sweeps):
@@ -401,13 +406,6 @@ def v_cycle(
     boundaries,
     config,
     full_sweep,
-    nu1: int = 2,
-    nu2: int = 2,
-    min_coarse_n: int = 4,
-    coarse_max_sweeps: int = 100,
-    coarse_tol: float = 1e-5,
-    restriction: str = "full_weighting",
-    prolongation: str = "bilinear",
 ):
     """
     Perform one multigrid V-cycle on the equation L(U)=f.
@@ -419,9 +417,13 @@ def v_cycle(
     boundaries : boundary object for this level
     config : config for this level
     full_sweep : one-step smoother
-    nu1, nu2 : pre/post smoothing sweeps
+    nu1, nu2 : pre- / post-smoothing sweeps
     min_coarse_n : stop recursion when min(nx, ny) <= this
     """
+
+    mg = config.mg_config
+    min_coarse_n, restriction, prolongation = mg.min_coarse_n, mg.restriction, mg.prolongation
+    nu1, nu2 = mg.nu1, mg.nu2
 
     nx = U.shape[0] - 2
     ny = U.shape[1] - 2
@@ -433,8 +435,6 @@ def v_cycle(
             boundaries=boundaries,
             config=config,
             full_sweep=full_sweep,
-            max_sweeps=coarse_max_sweeps,
-            tol=coarse_tol,
         )
 
     # --------------------------------------------------------
@@ -475,13 +475,6 @@ def v_cycle(
         boundaries=coarse_boundaries,
         config=coarse_config,
         full_sweep=full_sweep,
-        nu1=nu1,
-        nu2=nu2,
-        min_coarse_n=min_coarse_n,
-        coarse_max_sweeps=coarse_max_sweeps,
-        coarse_tol=coarse_tol,
-        restriction=restriction,
-        prolongation=prolongation,
     )
 
     # --------------------------------------------------------
@@ -512,17 +505,6 @@ def solve_multigrid(
     boundaries,
     config,
     full_sweep,
-    max_cycles: int = 100,
-    tol_update: float = 1e-5,
-    tol_residual: float = 1e-5,   # diagnostic only unless you want to use it
-    res_max: float = 1e8,
-    nu1: int = 2,
-    nu2: int = 2,
-    min_coarse_n: int = 4,
-    coarse_max_sweeps: int = 100,
-    coarse_tol: float = 1e-6,
-    restriction: str = "full_weighting",
-    prolongation: str = "bilinear",
     verbose: bool = True,
 ):
     """
@@ -544,6 +526,9 @@ def solve_multigrid(
     f_all = config.f_all
     U_exact = config.U_exact
 
+    mg = config.mg_config
+    max_cycles, tol_update, res_max = mg.max_cycles, mg.tol_update, mg.res_max
+
     # initialize solution
     U = config.U0.copy()
     bc.apply_bcs_poisson_2d(U, config, boundaries)
@@ -561,7 +546,6 @@ def solve_multigrid(
 
     iter_count = 0
     t = 0.0
-    # dt = params.get("dt", 1.0)  # mostly just for compatibility with your standard return format
 
     t0 = time.perf_counter()
 
@@ -579,13 +563,6 @@ def solve_multigrid(
             boundaries=boundaries,
             config=config,
             full_sweep=full_sweep,
-            nu1=nu1,
-            nu2=nu2,
-            min_coarse_n=min_coarse_n,
-            coarse_max_sweeps=coarse_max_sweeps,
-            coarse_tol=coarse_tol,
-            restriction=restriction,
-            prolongation=prolongation,
         )
 
         # Re-apply BCs on the corrected fine-grid solution
@@ -694,13 +671,6 @@ def fmg_cycle(
     boundaries,
     config,
     full_sweep,
-    nu1: int = 2,
-    nu2: int = 2,
-    min_coarse_n: int = 4,
-    coarse_max_sweeps: int = 100,
-    coarse_tol: float = 1e-6,
-    restriction: str = "full_weighting",
-    prolongation: str = "bilinear",
 ):
     """
     Full Multigrid (FMG) recursive initialization.
@@ -717,6 +687,10 @@ def fmg_cycle(
     U : np.ndarray
         Approximate solution on the current grid.
     """
+
+    mg = config.mg_config
+    min_coarse_n, restriction, prolongation = mg.min_coarse_n, mg.restriction, mg.prolongation
+    coarse_max_sweeps, coarse_tol = mg.coarse_max_sweeps, mg.coarse_tol
 
     nx_int = config.Nx - 2
     ny_int = config.Ny - 2
@@ -767,13 +741,6 @@ def fmg_cycle(
         boundaries=coarse_boundaries,
         config=coarse_config,
         full_sweep=full_sweep,
-        nu1=nu1,
-        nu2=nu2,
-        min_coarse_n=min_coarse_n,
-        coarse_max_sweeps=coarse_max_sweeps,
-        coarse_tol=coarse_tol,
-        restriction=restriction,
-        prolongation=prolongation,
     )
 
     # ------------------------------------------------------------
@@ -795,13 +762,6 @@ def fmg_cycle(
         boundaries=boundaries,
         config=config,
         full_sweep=full_sweep,
-        nu1=nu1,
-        nu2=nu2,
-        min_coarse_n=min_coarse_n,
-        coarse_max_sweeps=coarse_max_sweeps,
-        coarse_tol=coarse_tol,
-        restriction=restriction,
-        prolongation=prolongation,
     )
 
     bc.apply_bcs_poisson_2d(U, config, boundaries)
@@ -817,17 +777,6 @@ def solve_fmg(
     boundaries,
     config,
     full_sweep,
-    max_cycles: int = 100,
-    tol_update: float = 1e-5,
-    tol_residual: float = 1e-5,   # diagnostic only unless you want to use it
-    res_max: float = 1e8,
-    nu1: int = 2,
-    nu2: int = 2,
-    min_coarse_n: int = 4,
-    coarse_max_sweeps: int = 100,
-    coarse_tol: float = 1e-6,
-    restriction: str = "full_weighting",
-    prolongation: str = "bilinear",
     verbose: bool = True,
 ):
     """
@@ -852,6 +801,9 @@ def solve_fmg(
     phi_exact = config.phi_exact
     f_all = config.f_all
     U_exact = config.U_exact
+
+    mg = config.mg_config
+    max_cycles, tol_update, res_max = mg.max_cycles, mg.tol_update, mg.res_max
 
     # histories
     update_hist = []
@@ -879,13 +831,6 @@ def solve_fmg(
         boundaries=boundaries,
         config=config,
         full_sweep=full_sweep,
-        nu1=nu1,
-        nu2=nu2,
-        min_coarse_n=min_coarse_n,
-        coarse_max_sweeps=coarse_max_sweeps,
-        coarse_tol=coarse_tol,
-        restriction=restriction,
-        prolongation=prolongation,
     )
 
     bc.apply_bcs_poisson_2d(U, config, boundaries)
@@ -955,13 +900,6 @@ def solve_fmg(
             boundaries=boundaries,
             config=config,
             full_sweep=full_sweep,
-            nu1=nu1,
-            nu2=nu2,
-            min_coarse_n=min_coarse_n,
-            coarse_max_sweeps=coarse_max_sweeps,
-            coarse_tol=coarse_tol,
-            restriction=restriction,
-            prolongation=prolongation,
         )
 
         bc.apply_bcs_poisson_2d(U, config, boundaries)
@@ -1050,7 +988,24 @@ def solve_fmg(
     return U, t, iter_count, histories
 
 def solve(config, get_params, full_sweep):
-    mg_solver = config.mg_solver
+    mg = config.mg_config
+    ### mg_config structure ###
+    # @dataclass
+    # class MultiGridConfig:
+    #     solver: str = "fmg"  # "rep_v_cycles" or "fmg"
+    #     max_cycles: int = 200,
+    #     tol_update: float = 1e-5,
+    #     tol_residual: float = 1e-5,
+    #     res_max: float = 1e8,
+    #     nu1: int = 2,
+    #     nu2: int = 2,
+    #     min_coarse_n: int = 4,
+    #     coarse_max_sweeps: int = 100,
+    #     coarse_tol: float = 1e-6,
+    #     restriction: str = "full_weighting",
+    #     prolongation: str = "bilinear",
+
+    solver = mg.solver
     params = get_params(config)
 
     # initialization
@@ -1062,10 +1017,10 @@ def solve(config, get_params, full_sweep):
     ### N = 64 parameters ###
 
     # p_unsplit
-    nu1, nu2 = 2, 2
-    coarse_max_sweeps = 200
-    min_coarse_n = 2
-    coarse_tol = 1e-6
+    # nu1, nu2 = 2, 2
+    # coarse_max_sweeps = 200
+    # min_coarse_n = 2
+    # coarse_tol = 1e-6
 
     # h_unsplit
     # nu1, nu2 = 4, 4
@@ -1073,17 +1028,11 @@ def solve(config, get_params, full_sweep):
     # min_coarse_n = 4
     # coarse_tol = 1e-6
 
-    if mg_solver == "rep_v_cycles":
-        U, t, cycle_count, histories = solve_multigrid(params, boundaries, config, full_sweep,
-                                                       nu1=nu1, nu2=nu2, min_coarse_n=min_coarse_n,
-                                                       coarse_max_sweeps=coarse_max_sweeps,
-                                                       coarse_tol=coarse_tol,)
-    elif mg_solver == "fmg":
-        U, t, cycle_count, histories = solve_fmg(params, boundaries, config, full_sweep,
-                                                       nu1=nu1, nu2=nu2, min_coarse_n=min_coarse_n,
-                                                       coarse_max_sweeps=coarse_max_sweeps,
-                                                       coarse_tol=coarse_tol,)
+    if solver == "rep_v_cycles":
+        U, t, cycle_count, histories = solve_multigrid(params, boundaries, config, full_sweep,)
+    elif solver == "fmg":
+        U, t, cycle_count, histories = solve_fmg(params, boundaries, config, full_sweep,)
     else:
-        raise ValueError(f"Unknown solver: {mg_solver}")
+        raise ValueError(f"Unknown solver: {solver}")
 
     return U, t, cycle_count, histories

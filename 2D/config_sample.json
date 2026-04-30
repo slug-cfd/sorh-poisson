@@ -1,0 +1,45 @@
+{
+    "_comment": "Sample configuration for a 2D Poisson simulation.",
+
+    "problem":  "poisson",
+    "poisson_problem": "two_blob",
+    "method":   "h_unsplit",
+    "bc_type":  "poisson",
+
+    "Nx":       32,
+    "Ny":       32,
+    "cfl":      0.8,
+
+    "omega":    0.687,
+    "iter_max": 4000,
+    "norm":     "fro",
+
+    "dt_factor": 1.0,
+    "multigrid": false,
+
+    "mg_config": {
+        "solver":           "fmg",
+        "max_cycles":       200,
+        "tol_update":       1e-5,
+        "tol_residual":     1e-5,
+        "res_max":          1e8,
+        "nu1":              2,
+        "nu2":              2,
+        "min_coarse_n":     4,
+        "coarse_max_sweeps": 100,
+        "coarse_tol":       1e-6,
+        "restriction":      "full_weighting",
+        "prolongation":     "bilinear"
+    },
+
+    "h_unsplit_config": {
+        "mode":               "weighted_hybrid",
+        "use_theta":          true,
+        "theta":              0.785398163397,
+        "normalize_direction": true,
+        "direction_norm":     1.4142135623730951,
+        "alpha":              0.80,
+        "beta":               0.80,
+        "eps_alpha":          0.05
+    }
+}

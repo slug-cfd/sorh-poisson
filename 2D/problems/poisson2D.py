@@ -1,55 +1,13 @@
-import math
 import BC_2D as bc
 from methods.Poisson import p_unsplit, p_ADI, h_ADI, h_unsplit, multigrid as mg
 from methods.Poisson.poisson_helpers import *
-
-
-# left "blob"
-def A(x, y, R):
-    c = 3.0 * (R ** 2)
-    return (((x - (5.0 * R)) ** 2) + (y ** 2)) / c
-
-
-# right "blob"
-def B(x, y, R):
-    c = 3.0 * (R ** 2)
-    return (((x + (5.0 * R)) ** 2) + (y ** 2)) / c
-
-
-# 2D density distribution based on the form of phi(x, y).
-# the paper defined phi(x, y, z), so we simply drop the z terms.
-def rho(x, y, rho0, R):
-    c = rho0 / 3.0
-    a = A(x, y, R)
-    b = B(x, y, R)
-
-    left = (2 - a) * ((1 + a) ** (-5.0 / 2.0))
-    right = (2 - b) * ((1 + b) ** (-5.0 / 2.0))
-
-    return c * (left + right)
-
-
-# phi(x, y, z) from paper -> drop z terms -> phi(x, y)
-def phi_exact(x, y, rho0, R, G):
-    c = -4.0 * math.pi * G * rho0 * (R ** 2)
-
-    left = (1 + A(x, y, R)) ** (-0.5)
-    right = (1 + B(x, y, R)) ** (-0.5)
-
-    return c * (left + right)
-
-
-# here we assume 4*pi*G = 1 (as the paper did),
-# thus ∆phi = f(x, y) where f(x, y) = rho(x, y)
-def f(x, y, rho0, R):
-    return rho(x, y, rho0, R)
+from problems.poisson_tests.two_blob import A, B, f, phi_exact, rho
 
 
 def get_all_f_from_xy(params) -> np.ndarray:
-    x, y, rho0, R = params.x, params.y, params.rho0, params.R
-
+    x, y = params.x, params.y
     X, Y = np.meshgrid(x, y, indexing='ij')  # shape (Nx+2*ngc, Ny+2*ngc)
-    return f(X, Y, rho0, R)
+    return params._eval_rhs(X, Y)
 
 
 # config: Config object
@@ -179,8 +137,7 @@ def solve(config, get_params, full_sweep):
 
 
 def solve_all(config):
-    mg_solver = config.mg_solver
-    if mg_solver is not None:
+    if config.multigrid:
         match config.method:
             case "p_unsplit":
                 U, t, cycle_count, histories = mg.solve(config, p_unsplit.get_params, p_unsplit.full_sweep)
@@ -208,4 +165,3 @@ def solve_all(config):
                 raise ValueError("Unknown solver method")
 
     return U, t, iter_count, histories
-

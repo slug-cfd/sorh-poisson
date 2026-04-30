@@ -29,8 +29,7 @@ def get_bcs_poisson_2d(config, phi_exact):
     Reflection (Neumann 0): x=0, y=0
     Dirichlet: x=20R, y=20R using phi_exact
     """
-    x, y, rho0, R, G = (config.x, config.y,
-                        config.rho0, config.R, config.G)
+    x, y = config.x, config.y
     # Nx, Ny, dx, dy = (config.Nx, config.Ny, config.dx, config.dy)
     # ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
     xa, xb, ya, yb = config.xa, config.xb, config.ya, config.yb
@@ -76,11 +75,13 @@ def get_bcs_poisson_2d(config, phi_exact):
     # x, y = config.x, config.y
 
     # ---- Enforce U(x, y) = phi_exact(x, y) on the physical boundary ----
-    phi_xL = phi_exact(xa, y, rho0, R, G)
-    phi_xR = phi_exact(xb, y, rho0, R, G)
+    exact = config._eval_exact
 
-    phi_yB = phi_exact(x, ya, rho0, R, G)
-    phi_yT = phi_exact(x, yb, rho0, R, G)
+    phi_xL = exact(xa, y)
+    phi_xR = exact(xb, y)
+
+    phi_yB = exact(x, ya)
+    phi_yT = exact(x, yb)
 
     boundaries = [phi_xL, phi_xR, phi_yB, phi_yT]
 
