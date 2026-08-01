@@ -34,10 +34,13 @@ def main():
     parser = argparse.ArgumentParser(description="Run a config-driven 1D solver.")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
-    parser.add_argument("--plot", action="store_true")
+    parser.add_argument("--plot", action="store_true", help="Force plotting on.")
     args = parser.parse_args()
 
     config = config_from_json(args.config)
+    if args.plot:
+        config.plot_enabled = True
+
     U, t, iter_count, histories, record = run_simulation(config)
 
     print("method:", method_name_map[config.method])
@@ -51,7 +54,7 @@ def main():
 
     save_record(record, args.output)
 
-    if args.plot:
+    if config.plot_enabled:
         plot_solution(U, iter_count, histories, config)
 
 

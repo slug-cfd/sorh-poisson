@@ -89,6 +89,8 @@ def solve(config: Config1D):
     reason = "iter_max"
     stable = True
     converged = False
+    print("omega: ", config.omega)
+    print("interior size: ", config.interior_size)
 
     for iter_count in range(1, config.iter_max + 1):
         U_old = U.copy()

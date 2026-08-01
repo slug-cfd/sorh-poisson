@@ -9,11 +9,13 @@ def get_params(config):
 
 
 def full_sweep(U, params, config):
-    r = params["r"]
-    omega = config.omega
     U_old = U.copy()
     U_new = U.copy()
-    dt_candidate = params["dt"]
+    omega = config.omega
+    dx = config.dx
+
+    r = params["r"]
+    vmax = params["vmax"]
 
     for i in range(config.ib, config.ie + 1):
         vm, vp = nonlinear_face_values(U, i)
@@ -25,9 +27,11 @@ def full_sweep(U, params, config):
         )
         U_new[i] = U_old[i] + omega * (proposed - U_old[i])
 
-        v_max = max(vm, vp)
-        if abs(v_max) > 1e-2:
-            dt_candidate = min(dt_candidate, config.dt_factor * config.cfl * (config.dx / v_max))
+        vmax = max(vmax, abs(vm), abs(vp))
 
-    params["dt"] = dt_candidate
+    dt = config.dt_factor * config.cfl * (dx / vmax)
+    params["vmax"] = vmax
+    params["dt"] = dt
+    params["r"] = dt / dx
+
     return U_new

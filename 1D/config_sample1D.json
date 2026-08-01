@@ -4,11 +4,15 @@
     "problem": "linear",
     "method": "sor_linear_hyperbolic",
 
-    "N": 16,
-    "cfl": 0.8,
-    "omega": 0.86,
-    "iter_max": 5000,
+    "N": 65,
+    "cfl": 0.9,
+    "omega": 0.953,
+    "use_omega_opt": true,
+    "iter_max": 10000,
     "norm": 2,
+
+    "plot_enabled": true,
+    "plot_history_norm": "update",
 
     "dt_factor": 1.0,
     "xa": 0.0,
@@ -18,7 +22,7 @@
 
     "linear_v": 0.5,
     "nonlinear_vmax": 0.5,
-    "hyperbolic_linear_v": 1.0,
+    "hyperbolic_linear_v": 0.5,
 
     "solver_config": {
         "tol_update": 1e-7,
