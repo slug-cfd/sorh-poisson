@@ -47,19 +47,25 @@ cd 1D
 uv run python main.py --config path/to/config.json
 ```
 
-Run the 1D benchmark/test helper:
+### Report figure data
+
+The collectors for the 1D report data (Figures 3.1-3.4) live in `1D/tests/`. Run Figure 3 first to create
+the shared omega-sweep dataset, then reuse that dataset for Figures 1, 2, and 4
+to avoid repeating solver runs:
 
 ```bash
 cd 1D
-uv run python tests/tests_1D.py
+uv run python tests/collect_figure3_data.py
+uv run python tests/collect_figure1_data.py --omega-data results/final_report_figure_data/consistency_rerun_20260801/figure3_omega_sweeps.csv
+uv run python tests/collect_figure2_data.py --omega-data results/final_report_figure_data/consistency_rerun_20260801/figure3_omega_sweeps.csv
+uv run python tests/collect_figure4_data.py --omega-data results/final_report_figure_data/consistency_rerun_20260801/figure3_omega_sweeps.csv
 ```
 
-The benchmark script supports options such as `--Ns`, `--iter-max`, `--omega-min`, `--omega-max`, and `--output-dir`. Generated result analysis lives in `1D/diagnostics/`; for example:
+`omega_sweep.py` provides the shared sweep routine. By default, all four
+collectors write concise CSV files under
+`1D/results/final_report_figure_data/consistency_rerun_20260801/`.
 
-```bash
-cd 1D
-uv run python diagnostics/analysis.py --input-dir results/sor_performance
-```
+The scripts for figure generation are separate from the data collection scripts and are located under `1D/diagnostics/plot_report_figures.py`.
 
 ## 2D
 
