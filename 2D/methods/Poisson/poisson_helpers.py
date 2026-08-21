@@ -58,19 +58,51 @@ def centered_2D_laplacian(U, i, j, config):
     return x_disc + y_disc
 
 
-def get_all_laplace(U, params) -> np.ndarray:
+def wide_2D_laplacian(U, i, j, config):
+    if getattr(config, "ngc", 1) < 2:
+        raise ValueError("wide_2D_laplacian requires config.ngc >= 2.")
+    if i - 2 < 0 or j - 2 < 0 or i + 2 >= U.shape[0] or j + 2 >= U.shape[1]:
+        raise IndexError(
+            "wide_2D_laplacian requires neighbors two cells away; "
+            "check config boundary-layer setup."
+        )
+
+    dx, dy = config.dx, config.dy
+    x_disc = (U[i+2, j] - (2.0 * U[i, j]) + U[i-2, j]) / (4.0 * dx**2)
+    y_disc = (U[i, j+2] - (2.0 * U[i, j]) + U[i, j-2]) / (4.0 * dy**2)
+    return x_disc + y_disc
+
+
+def laplacian_2D(U, i, j, config, stencil=None):
+    stencil = stencil or getattr(config, "laplacian_stencil", "centered")
+
+    if stencil == "centered":
+        return centered_2D_laplacian(U, i, j, config)
+    if stencil == "wide":
+        return wide_2D_laplacian(U, i, j, config)
+    if stencil == "isotropic_9pt":
+        return isotropic_9pt(U, i, j, config)
+
+    raise ValueError(
+        f"Unknown laplacian_stencil='{stencil}'. "
+        "Expected one of: 'centered', 'wide', 'isotropic_9pt'."
+    )
+
+
+def get_all_laplace(U, params, stencil) -> np.ndarray:
     # x, y = params.x, params.y
     ib, ie, jb, je = params.ib, params.ie, params.jb, params.je
     laplace_array = np.zeros_like(U)
 
     for i in range(ib, ie+1):
         for j in range(jb, je+1):
-            laplace_array[i, j] = centered_2D_laplacian(U, i, j, params)
+            laplace_array[i, j] = laplacian_2D(U, i, j, params, stencil)
 
     return laplace_array
 
 
-def isotropic_9pt(U, i, j, h):
+def isotropic_9pt(U, i, j, config):
+    h = config.dx
     c = 1.0 / (6.0 * h**2)
     update = (4.0 * (U[i+1, j] + U[i-1, j] + U[i, j+1] + U[i, j-1])
               + (U[i+1, j+1] + U[i+1, j-1] + U[i-1, j+1] + U[i-1, j-1])

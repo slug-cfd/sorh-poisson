@@ -1,5 +1,5 @@
-import BC_2D as bc
-from methods.Poisson.poisson_helpers import *
+import boundary_conditions as bc
+from methods.poisson.poisson_helpers import *
 
 
 def get_params(config):
@@ -19,69 +19,36 @@ def get_params(config):
     return params
 
 
+def _update_point(U, U_old, i, j, dt, omega, f_all, config):
+    candidate = U[i, j] + dt * (
+        laplacian_2D(U, i, j, config, config.laplacian_stencil)
+        - f_all[i, j]
+    )
+    U[i, j] = U_old[i, j] + omega * (candidate - U_old[i, j])
+
+
 def full_sweep(U, params, boundaries, config):
     ib, ie, jb, je = config.ib, config.ie, config.jb, config.je
     omega, f_all = config.omega, config.f_all
     dt = params["dt"]
 
     U_old = U.copy()
+    gs_ordering = config.p_unsplit_config.gs_ordering
 
-    # Lexicographic GS - simple sequential updates
-    # for i in range(ib, ie + 1):
-    #     for j in range(jb, je + 1):
-    #         U[i, j] = (midpoint * U[i, j]
-    #                    + rx * (U[i - 1, j] + U[i + 1, j])
-    #                    + ry * (U[i, j - 1] + U[i, j + 1]) - (dt * f_all[i, j]))
-    #
-    #         # SOR update
-    #         U[i, j] = U_old[i, j] + (omega * (U[i, j] - U_old[i, j]))
-
-    # Red-Black GS - checkerboard update pattern
-    # -> helps to remove direction dependence and asymmetry issues
-
-    # # RED sweep
-    # for i in range(ib, ie + 1):
-    #     for j in range(jb, je + 1):
-    #         if (i + j) % 2 == 0:
-    #             U[i, j] = midpoint * U[i, j] \
-    #                       + rx * (U[i - 1, j] + U[i + 1, j]) \
-    #                       + ry * (U[i, j - 1] + U[i, j + 1]) - (dt_mod * f_all[i, j])
-    #
-    #             # SOR update
-    #             U[i, j] = U_old[i, j] + (omega * (U[i, j] - U_old[i, j]))
-    #
-    # # BLACK sweep
-    # for i in range(ib, ie + 1):
-    #     for j in range(jb, je + 1):
-    #         if (i + j) % 2 == 1:
-    #             U[i, j] = midpoint * U[i, j] \
-    #                       + rx * (U[i - 1, j] + U[i + 1, j]) \
-    #                       + ry * (U[i, j - 1] + U[i, j + 1]) - (dt_mod * f_all[i, j])
-    #
-    #             # SOR update
-    #             U[i, j] = U_old[i, j] + (omega * (U[i, j] - U_old[i, j]))
-
-    # Red-Black GS - checkerboard update pattern
-    # -> helps to remove direction dependence and asymmetry issues
-    # sweep over INTERNAL indices only: [ib, ie]
-
-    # RED sweep
-    for i in range(ib, ie + 1):
-        for j in range(jb, je + 1):
-            if (i + j) % 2 == 0:
-                U[i, j] = U[i, j] + (dt * (centered_2D_laplacian(U, i, j, config) - f_all[i, j]))
-
-                # SOR update
-                U[i, j] = U_old[i, j] + (omega * (U[i, j] - U_old[i, j]))
-
-    # BLACK sweep
-    for i in range(ib, ie + 1):
-        for j in range(jb, je + 1):
-            if (i + j) % 2 == 1:
-                U[i, j] = U[i, j] + (dt * (centered_2D_laplacian(U, i, j, config) - f_all[i, j]))
-
-                # SOR update
-                U[i, j] = U_old[i, j] + (omega * (U[i, j] - U_old[i, j]))
+    if gs_ordering == "lexicographic":
+        for i in range(ib, ie + 1):
+            for j in range(jb, je + 1):
+                _update_point(U, U_old, i, j, dt, omega, f_all, config)
+    elif gs_ordering == "red_black":
+        for color in (0, 1):
+            for i in range(ib, ie + 1):
+                for j in range(jb, je + 1):
+                    if (i + j) % 2 == color:
+                        _update_point(
+                            U, U_old, i, j, dt, omega, f_all, config
+                        )
+    else:
+        raise ValueError(f"Unknown p_unsplit gs_ordering='{gs_ordering}'.")
 
     # update BCs
     bc.apply_bcs_poisson_2d(U, config, boundaries)

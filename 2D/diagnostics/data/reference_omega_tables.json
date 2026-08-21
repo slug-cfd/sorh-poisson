@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "description": "Legacy relaxation-parameter tables migrated from 2D/config_storage.py.",
+    "usage": "Reference values for reproducing older experiments; not active configuration defaults."
+  },
+  "methods_by_solver": {
+    "poisson_base": ["p_unsplit", "p_ADI", "h_unsplit", "h_ADI"],
+    "poisson_multigrid": ["p_unsplit", "p_ADI", "h_unsplit", "h_ADI"],
+    "nonlinear_diffusion": ["p_unsplit", "h_unsplit", "DS1", "DS2"],
+    "linear_diffusion": []
+  },
+  "omega_by_grid": {
+    "32": {
+      "poisson_base": [2.0, 1.81, 0.687, 0.25],
+      "poisson_multigrid": [2.0, 1.0, 0.67, 1.0],
+      "nonlinear_diffusion": [1.55, 0.82, 0.8, 0.8],
+      "linear_diffusion": []
+    },
+    "64": {
+      "poisson_base": [2.0, 1.81, 0.713, 0.25],
+      "poisson_multigrid": [2.0, 1.0, 0.67, 1.0],
+      "nonlinear_diffusion": [1.55, 0.82, 0.8, 0.8],
+      "linear_diffusion": []
+    },
+    "128": {
+      "poisson_base": [2.457, 1.81, 0.731, 0.25],
+      "poisson_multigrid": [2.0, 1.0, 0.67, 1.0],
+      "nonlinear_diffusion": [1.55, 0.82, 0.8, 0.8],
+      "linear_diffusion": []
+    }
+  }
+}

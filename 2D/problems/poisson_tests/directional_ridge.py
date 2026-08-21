@@ -17,7 +17,7 @@ DEFAULT_AMPLITUDE = 62.50
 
 
 def _constants(config):
-    return config.poisson_problem_def.constants
+    return config.problem_instance.constants
 
 
 def _rotated_coordinates(x, y, theta):

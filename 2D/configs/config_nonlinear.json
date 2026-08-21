@@ -1,0 +1,40 @@
+{
+    "_comment": "Nonlinear diffusion example configuration",
+    "problem": {
+        "kind": "nonlinear_diffusion",
+        "case": "unit_square_linear_x",
+        "coefficient": {
+            "model": "regularized",
+            "regularization_epsilon": 0.0
+        },
+        "initial_condition": "zero"
+    },
+    "grid": {
+        "Nx": 32,
+        "Ny": 32,
+        "laplacian_stencil": "centered",
+        "ghost_layers": null
+    },
+    "run": {
+        "method": "h_unsplit",
+        "cfl": 0.8,
+        "omega": 0.9,
+        "use_omega_opt": true,
+        "iter_max": 2000,
+        "norm": "fro",
+        "timestep_mode": "fixed",
+        "multigrid": false,
+        "stopping": {
+            "tol_update": 1e-10,
+            "tol_residual": 1e-5,
+            "res_max": 1e8
+        }
+    },
+    "methods": {
+        "p_unsplit": {
+            "gs_ordering": "lexicographic",
+            "coefficient_mode": "pointwise"
+        }
+    },
+    "output": {"plot": false, "plot_exact": false}
+}

@@ -1,6 +1,6 @@
-import BC_2D as bc
-from methods.Poisson.poisson_helpers import *
-from methods.Poisson.hu_methods import *
+import boundary_conditions as bc
+from methods.poisson.poisson_helpers import *
+from methods.poisson.hu_methods import *
 
 
 def _resolve_direction_vector(full_config):
@@ -91,25 +91,14 @@ def get_params(config):
         c1r = 1.0 / directional_den
     update_coeffs = (bxdy, bydx, c1r, c2)
 
-    params = {
-        "dt": dt,
-        "c1": c1,
-        "c2": c2,
-        "bx": bx,
-        "by": by,
-        "bxdy": bxdy,
-        "bydx": bydx,
-        "update_coeffs": update_coeffs,
-    }
-
-    params["theta"] = theta
-    params["quadrant_mode"] = quadrant_mode
+    params = {"dt": dt, "c1": c1, "c2": c2, "bx": bx, "by": by, "bxdy": bxdy, "bydx": bydx,
+              "update_coeffs": update_coeffs, "theta": theta, "quadrant_mode": quadrant_mode}
 
     # validate weighted hybrid parameters if needed
     if hu_config.mode == "weighted_hybrid":
         alpha = hu_config.alpha
         beta = hu_config.beta
-        eps_alpha = getattr(config, "eps_alpha", 0.05)
+        eps_alpha = hu_config.eps_alpha
 
         if abs(alpha - 0.5) < eps_alpha or abs(beta - 0.5) < eps_alpha:
             raise ValueError(
@@ -128,6 +117,15 @@ def get_params(config):
         params["eps_alpha"] = eps_alpha
         params["hybrid_den"] = den
 
+    if hu_config.mode == "default2_blend":
+        eta = hu_config.default2_blend_eta
+        if not 0.0 <= eta <= 1.0:
+            raise ValueError(
+                "default2_blend_eta must satisfy 0 <= eta <= 1; "
+                f"got {eta}."
+            )
+        params["default2_blend_eta"] = eta
+
     return params
 
 
@@ -142,8 +140,27 @@ def full_sweep(U, params, boundaries, config):
     if mode == "default":
         U = unsplit_update(U, config, boundaries, (params["c1"], params["c2"]), f_all)
 
+    elif mode == "red_black":
+        U = red_black_rectangular(
+            U,
+            config,
+            boundaries,
+            (params["c1"], params["c2"]),
+            f_all,
+        )
+
     elif mode == "default2":
         U = back_x_back_y_2nd(U, config, boundaries, (params["c1"], params["c2"]), f_all)
+
+    elif mode == "default2_blend":
+        U = back_x_back_y_bdf_blend(
+            U,
+            config,
+            boundaries,
+            (params["c1"], params["c2"]),
+            f_all,
+            params["default2_blend_eta"],
+        )
 
     elif mode == "weighted_hybrid":
         U = weighted_hybrid(
@@ -173,7 +190,8 @@ def full_sweep(U, params, boundaries, config):
     else:
         raise ValueError(
             f"Unknown h_unsplit_mode='{mode}'. "
-            "Expected one of: 'default', 'directional', 'weighted_hybrid'."
+            "Expected one of: 'default', 'red_black', 'default2', "
+            "'default2_blend', 'directional', 'weighted_hybrid'."
         )
 
     return U

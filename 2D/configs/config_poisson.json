@@ -1,0 +1,37 @@
+{
+    "_comment": "Poisson example configuration",
+    "problem": {"kind": "poisson", "case": "two_blob"},
+    "grid": {
+        "Nx": 64,
+        "Ny": 64,
+        "laplacian_stencil": "centered",
+        "ghost_layers": null
+    },
+    "run": {
+        "method": "h_unsplit",
+        "cfl": 0.8,
+        "omega": 0.9,
+        "use_omega_opt": true,
+        "iter_max": 4000,
+        "norm": "fro",
+        "multigrid": false,
+        "stopping": {
+            "tol_update": 1e-10,
+            "tol_residual": 1e-5,
+            "res_max": 1e8
+        }
+    },
+    "methods": {
+        "p_unsplit": {"gs_ordering": "lexicographic"},
+        "h_unsplit": {
+            "mode": "default",
+            "theta": 0.785398163397,
+            "normalize_direction": true,
+            "direction_norm": 1.4142135623730951,
+            "alpha": 0.8,
+            "beta": 0.8,
+            "eps_alpha": 0.05
+        }
+    },
+    "output": {"plot": false, "plot_exact": false}
+}

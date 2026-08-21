@@ -17,9 +17,18 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from config import Config, HyperbolicUnsplitConfig, MultiGridConfig
-from methods.Poisson import h_unsplit
-from problems import poisson2D
+from configuration import (
+    Config,
+    GridConfig,
+    HyperbolicUnsplitConfig,
+    MethodConfig,
+    ProblemConfig,
+    RunConfig,
+    SimulationContext,
+    initialize_simulation,
+)
+from methods.poisson import h_unsplit
+from problems import poisson
 
 
 PROBLEM_NAME = "directional_ridge"
@@ -42,29 +51,29 @@ def make_config(
     alpha: float = DEFAULT_ALPHA,
     beta: float = DEFAULT_BETA,
     direction_norm: float = DEFAULT_DIRECTION_NORM,
-) -> Config:
-    return Config(
-        problem="poisson",
-        poisson_problem=PROBLEM_NAME,
-        method="h_unsplit",
-        bc_type="poisson",
-        Nx=nx,
-        Ny=ny,
-        cfl=0.8,
-        omega=float(omega),
-        iter_max=iter_max,
-        norm="fro",
-        mg_config=MultiGridConfig(),
-        h_unsplit_config=HyperbolicUnsplitConfig(
-            mode="directional",
-            use_theta=True,
-            theta=float(theta),
-            normalize_direction=True,
-            direction_norm=float(direction_norm),
-            alpha=float(alpha),
-            beta=float(beta),
-        ),
-        multigrid=False,
+) -> SimulationContext:
+    return initialize_simulation(
+        Config(
+            problem=ProblemConfig(kind="poisson", case=PROBLEM_NAME),
+            grid=GridConfig(Nx=nx, Ny=ny),
+            run=RunConfig(
+                method="h_unsplit",
+                cfl=0.8,
+                omega=float(omega),
+                iter_max=iter_max,
+                norm="fro",
+            ),
+            methods=MethodConfig(
+                h_unsplit=HyperbolicUnsplitConfig(
+                    mode="directional",
+                    theta=float(theta),
+                    normalize_direction=True,
+                    direction_norm=float(direction_norm),
+                    alpha=float(alpha),
+                    beta=float(beta),
+                ),
+            ),
+        )
     )
 
 
@@ -74,9 +83,9 @@ def _last(history: np.ndarray) -> float:
     return float(history[-1])
 
 
-def run_case(config: Config) -> dict[str, float | int | bool | str]:
+def run_case(config: SimulationContext) -> dict[str, float | int | bool | str]:
     start = time.perf_counter()
-    _, _, iter_count, histories = poisson2D.solve_all(config)
+    _, _, iter_count, histories = poisson.solve_all(config)
     elapsed = time.perf_counter() - start
 
     update_hist = histories["update"]
@@ -102,7 +111,7 @@ def run_case(config: Config) -> dict[str, float | int | bool | str]:
     hu_config = config.h_unsplit_config
     quadrant_mode = h_unsplit.get_params(config)["quadrant_mode"]
     return {
-        "problem": config.poisson_problem,
+        "problem": config.problem_case,
         "method": config.method,
         "mode": hu_config.mode,
         "quadrant_mode": quadrant_mode,
@@ -125,7 +134,7 @@ def run_case(config: Config) -> dict[str, float | int | bool | str]:
     }
 
 
-def run_logged_case(config: Config) -> dict[str, float | int | bool | str]:
+def run_logged_case(config: SimulationContext) -> dict[str, float | int | bool | str]:
     hu_config = config.h_unsplit_config
     print(
         f"running omega={config.omega:.2f}, "

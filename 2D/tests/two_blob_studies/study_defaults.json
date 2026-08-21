@@ -1,0 +1,44 @@
+{
+    "grid_sizes": [16, 32, 64, 128, 256],
+    "cfl_values": [1.0, 0.8],
+    "problem": {
+        "name": "two_blob",
+        "laplacian_stencil": "centered",
+        "ghost_layers": null,
+        "initial_guess": "zero"
+    },
+    "methods": {
+        "h_unsplit": {
+            "label": "SORh",
+            "mode": "default",
+            "manual_omega": 0.9
+        },
+        "p_unsplit": {
+            "label": "SORp",
+            "gs_ordering": "lexicographic",
+            "manual_omega": 1.0
+        }
+    },
+    "solver": {
+        "norm": "fro",
+        "tol_residual": 1e-5,
+        "tol_update": 1e-10,
+        "res_max": 1e8,
+        "iter_max": 20000
+    },
+    "omega_search": {
+        "relative_step": 0.0025,
+        "minimum_step": 0.0005,
+        "max_steps_per_side": 5,
+        "increase_patience": 2
+    },
+    "performance": {
+        "repetitions": 5
+    },
+    "accuracy": {
+        "tol_residual": 1e-10,
+        "tol_update": 1e-13,
+        "iter_max": 100000,
+        "algebraic_error_fraction_max": 1e-3
+    }
+}

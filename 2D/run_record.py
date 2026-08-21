@@ -1,6 +1,7 @@
-from dataclasses import dataclass, asdict
-# import json, time
-from config import Config
+from dataclasses import dataclass
+
+from configuration import SimulationContext
+
 
 @dataclass
 class RunResult:
@@ -11,9 +12,11 @@ class RunResult:
     residual_min: float
     residual_max: float
     elapsed_sec: float
+    reason: str
+
 
 @dataclass
 class RunRecord:
-    config: Config
+    config: SimulationContext
     results: RunResult
     meta: dict

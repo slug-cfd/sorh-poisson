@@ -1,14 +1,10 @@
-import os
+import argparse
 import time
-import json
 from pathlib import Path
 
-import load_config as lcf
-from run_record import *
-from diagnostics.plot_solutions import *
-
-from tests import tests_2D as tests
-from problems import poisson2D, nonlinear2D, linear2D
+from configuration import initialize_simulation, load_config
+from problems import linear_diffusion, nonlinear_diffusion, poisson
+from runner import run_simulation, save_record
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -16,178 +12,151 @@ DEFAULT_CONFIG = BASE_DIR / "config_sample.json"
 DEFAULT_RESULTS_DIR = BASE_DIR / "results"
 
 
-problem_map = {
-    'poisson': poisson2D,
-    'toy_nonlinear': nonlinear2D,
-    'toy_linear': linear2D,
-}
+def _plot_solution(solution, iteration_count, history, config, history_label):
+    from diagnostics.plot_solutions import plot_solution
 
-def solve_p2D(config, plot=False):
+    plot_solution(
+        solution,
+        iteration_count,
+        history,
+        config,
+        history_label=history_label,
+    )
+
+
+def solve_poisson(config, plot=False):
     if config.problem != "poisson" or config.multigrid:
-        print("invalid problem for poisson solver!")
-        return 0
+        raise ValueError("The base Poisson runner requires problem='poisson' and multigrid=false.")
 
     start = time.perf_counter()
-
-    U, t, iter_count, histories = poisson2D.solve_all(config)
-
-    end = time.perf_counter()
-    elapsed = end - start
-
-    ### histories structure ###
-    # histories = {
-    #     "update": np.array(update_hist),
-    #     "residual": np.array(residual_hist),
-    #     "exact": np.array(exact_hist),
-    #     "best_exact": best_exact,
-    #     "best_iter": best_iter,
-    # }
-
-    conv_history = histories["exact"]
-    res_final = conv_history[-1]
+    solution, pseudo_time, iteration_count, histories = poisson.solve_all(config)
+    elapsed = time.perf_counter() - start
 
     print("method:", config.method)
-    print("iterations:", iter_count)
-    print("final residual: ", res_final)
-    print(f"best residual: {histories["best_exact"]} | iteration {histories["best_iter"]}")
-    # print("time t: ", t)
-    print("elapsed time: ", elapsed)
+    print("iterations:", iteration_count)
+    print("final equation residual:", histories["residual"][-1])
+    print("final update residual:", histories["update"][-1])
+    print("final exact error:", histories["exact"][-1])
+    print(f"best exact error: {histories['best_exact']} | iteration {histories['best_iter']}")
+    print("stop reason:", histories["reason"])
+    print("pseudo-time:", pseudo_time)
+    print("elapsed time:", elapsed)
 
     if plot:
-        plot_solution(U, iter_count, conv_history, config)
+        _plot_solution(
+            solution,
+            iteration_count,
+            histories["residual"],
+            config,
+            "Equation residual",
+        )
+    return solution, pseudo_time, iteration_count, histories
 
-    return U, t, iter_count, histories
 
-
-def solve_p2d_multigrid(config, plot=False):
+def solve_poisson_multigrid(config, plot=False):
     if config.problem != "poisson" or not config.multigrid:
-        print("invalid problem for poisson solver!")
-        return 0
+        raise ValueError("The multigrid runner requires problem='poisson' and multigrid=true.")
 
-    U, t, cycle_count, histories = poisson2D.solve_all(config)
-
-    ### histories structure ###
-    # histories = {
-    #     "update": np.array(update_hist),
-    #     "residual": np.array(residual_hist),
-    #     "exact": np.array(exact_hist),
-    #     "cycle_time": np.array(cycle_time_hist),
-    #     "best_exact": best_exact,
-    #     "best_iter": best_iter,
-    #     "elapsed": elapsed,
-    #     "cycles": iter_count,
-    #     "U_best": U_best,
-    # }
-
-    conv_history = histories["exact"]
-    res_final = conv_history[-1]
-
-    print()
+    solution, pseudo_time, cycle_count, histories = poisson.solve_all(config)
     print("method:", config.method)
-    print("total time: ", t)
     print("cycle count:", cycle_count)
-    print("final residual: ", res_final)
+    print("final equation residual:", histories["residual"][-1])
+    print("pseudo-time:", pseudo_time)
 
     if plot:
-        plot_solution(U, cycle_count, conv_history, config)
+        _plot_solution(
+            solution,
+            cycle_count,
+            histories["residual"],
+            config,
+            "Equation residual",
+        )
+    return solution, pseudo_time, cycle_count, histories
 
-    return U, t, cycle_count, histories
 
+def solve_nonlinear_diffusion(config, plot=False):
+    if config.problem != "nonlinear_diffusion":
+        raise ValueError("The nonlinear runner requires problem='nonlinear_diffusion'.")
 
-def solve_nl2D(config, plot=False):
-    if config.problem != "nonlinear":
-        print("invalid problem for poisson solver!")
-        return 0
-
-    U, t, iter_count, histories = nonlinear2D.solve_all(config)
-
-    ### histories structure ###
-    # histories = {
-    #     "update": np.array(update_hist),
-    #     "U_res_min": np.array(U_res_min),
-    #     "best_update": best_update,
-    #     "best_iter": best_iter,
-    # }
+    start = time.perf_counter()
+    solution, pseudo_time, iteration_count, histories = nonlinear_diffusion.solve_all(config)
+    elapsed = time.perf_counter() - start
 
     print("method:", config.method)
-    print("iterations:", iter_count)
-    print("final residual: ", histories["update_hist"][-1])
-    print(f"best residual: {histories["best_update"]} | iteration {histories["best_iter"]}")
-    print("time t: ", t)
+    print("iterations:", iteration_count)
+    print("final equation residual:", histories["residual"][-1])
+    print("final update residual:", histories["update"][-1])
+    print(f"best equation residual: {histories['best_residual']} | iteration {histories['best_iter']}")
+    print("stop reason:", histories["reason"])
+    print("pseudo-time:", pseudo_time)
+    print("elapsed time:", elapsed)
 
     if plot:
-        plot_solution(U, iter_count, histories["update_hist"], config)
+        _plot_solution(
+            solution,
+            iteration_count,
+            histories["residual"],
+            config,
+            "Equation residual",
+        )
+    return solution, pseudo_time, iteration_count, histories
 
-    return U, t, iter_count, histories
 
+def solve_linear_diffusion(config, plot=False):
+    if config.problem != "linear_diffusion":
+        raise ValueError("The linear runner requires problem='linear_diffusion'.")
 
-def solve_l2D(config, plot=False):
-    if config.problem != "linear":
-        print("invalid problem for poisson solver!")
-        return 0
-
-    U, t, iter_count, res, err_conv = linear2D.solve(config)
-
+    solution, pseudo_time, iteration_count, histories = linear_diffusion.solve(config)
     if plot:
-        plot_solution(U, iter_count, err_conv, config)
+        _plot_solution(
+            solution,
+            iteration_count,
+            histories["update"],
+            config,
+            "Update norm",
+        )
+    return solution, pseudo_time, iteration_count, histories
 
-    return U, t, iter_count, res, err_conv
 
-
-solver_map = {
-    "poisson_base": solve_p2D,
-    "poisson_mg": solve_p2d_multigrid,
-    "toy_nonlinear": solve_nl2D,
-    "toy_linear": solve_l2D,
+SOLVERS = {
+    "poisson_base": solve_poisson,
+    "poisson_mg": solve_poisson_multigrid,
+    "nonlinear_diffusion": solve_nonlinear_diffusion,
+    "linear_diffusion": solve_linear_diffusion,
 }
 
 
-def _get_solver_name(config):
-    p, mg = config.problem, config.multigrid
-    if p == "poisson":
-        return "poisson_mg" if mg else "poisson_base"
-    return p
+def _solver_name(config):
+    if config.problem == "poisson":
+        return "poisson_mg" if config.multigrid else "poisson_base"
+    return config.problem
 
 
-def _json_default(obj):
-    if callable(obj):
-        return obj.__name__ if obj is not None else None
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    if isinstance(obj, np.generic):      # catches ALL numpy scalars at once
-        return obj.item()                # converts to native Python type
-    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run a config-driven 2D solver.")
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG))
+    parser.add_argument("--output", default=str(DEFAULT_RESULTS_DIR / "test_record.json"))
+    parser.add_argument("--plot", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--plot-exact", action=argparse.BooleanOptionalAction, default=None)
+    return parser.parse_args()
 
 
-def save_record(record: RunRecord, filename: str):
-    row = {
-        "config":  record.config.to_dict(),
-        "results": asdict(record.results),
-        "meta":    record.meta,
-    }
-    with open(filename, "w") as f:
-        f.write(json.dumps(row, default=_json_default) + "\n")  # <-- make sure this is here
+def main():
+    args = parse_args()
+    settings = load_config(args.config)
+    config = initialize_simulation(settings)
+    plot = config.plot if args.plot is None else args.plot
+    plot_exact = config.plot_exact if args.plot_exact is None else args.plot_exact
+
+    if plot_exact:
+        from diagnostics.plot_solutions import plot_exact_solution
+
+        plot_exact_solution(config)
+
+    solver = SOLVERS[_solver_name(config)]
+    record = run_simulation(config, solver, plot)
+    save_record(record, args.output)
 
 
 if __name__ == "__main__":
-    plot = True
-    plot_exact = False
-
-    config1 = lcf.config_from_json(DEFAULT_CONFIG)
-
-    if plot_exact:
-        plot_exact_solution(config1)
-
-    solver = solver_map[_get_solver_name(config1)]
-
-    # run the simulation
-    record = tests.run_simulation(config1, solver, plot)
-
-    save_dir = DEFAULT_RESULTS_DIR
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-
-    save_record(record, save_dir / "test_record.json")
-
-# compare execution time between two methods/configurations
-# tests.run_compare(config1, config1, solver, solver)
+    main()

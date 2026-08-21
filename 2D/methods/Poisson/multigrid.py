@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import time
 
-from methods.Poisson.poisson_helpers import *
-import BC_2D as bc
-from config import Config
+from methods.poisson.poisson_helpers import *
+import boundary_conditions as bc
+from configuration import initialize_simulation
 
 # ============================================================
 # Basic utilities
 # ============================================================
-def coarse_full_size(N_f: int) -> int:
-    n_f = N_f - 2          # interior count
-    n_c = (n_f - 1) // 2   # standard nested coarsening
-    return n_c + 2         # back to full size
+def coarse_full_size(N_f: int, ngc: int = 1) -> int:
+    """Return the stored coarse size for a stored fine size."""
+    n_f = N_f - 2 * ngc
+    n_c = (n_f + 1) // 2
+    return n_c + 2 * ngc
 
 
 def zero_like_interior(U: np.ndarray) -> np.ndarray:
@@ -49,7 +51,7 @@ def apply_operator(U: np.ndarray, boundaries, config) -> np.ndarray:
 
     for example L(U) = U_xx + U_yy.
     """
-    return get_all_laplace(U, config)   # centered 2D laplacian
+    return get_all_laplace(U, config, config.laplacian_stencil)
 
 
 def compute_residual(U: np.ndarray, boundaries, config) -> np.ndarray:
@@ -87,45 +89,50 @@ def residual_norm(U: np.ndarray, boundaries, config):
 # Restriction / prolongation
 # ============================================================
 
-def restrict_injection(F: np.ndarray) -> np.ndarray:
+def restrict_injection(F: np.ndarray, ngc: int = 1) -> np.ndarray:
     """
-    Simple injection restriction for full grids with one ghost cell.
+    Simple injection restriction for full grids with fixed boundary/ghost layers.
 
     Assumes odd-numbered interior counts so that coarsening by factor ~2 makes sense.
 
-    Fine interior indices: 1...N
+    Fine interior indices: ngc...ngc+N-1
     Coarse interior samples every other fine point.
     """
-    Nc_x = (F.shape[0] - 2 + 1) // 2
-    Nc_y = (F.shape[1] - 2 + 1) // 2
+    Nf_x = F.shape[0] - 2 * ngc
+    Nf_y = F.shape[1] - 2 * ngc
+    Nc_x = (Nf_x + 1) // 2
+    Nc_y = (Nf_y + 1) // 2
 
-    Fc = np.zeros((Nc_x + 2, Nc_y + 2), dtype=F.dtype)
+    Fc = np.zeros((Nc_x + 2 * ngc, Nc_y + 2 * ngc), dtype=F.dtype)
 
-    Fc[1:-1, 1:-1] = F[1:-1:2, 1:-1:2]  # copy every other point from fine grid
+    Fc[ngc:ngc + Nc_x, ngc:ngc + Nc_y] = F[
+        ngc:ngc + 2 * Nc_x:2,
+        ngc:ngc + 2 * Nc_y:2,
+    ]
     return Fc
 
 
-def restrict_full_weighting(F: np.ndarray) -> np.ndarray:
+def restrict_full_weighting(F: np.ndarray, ngc: int = 1) -> np.ndarray:
     """
     Standard 2D full-weighting restriction for cell-centered or pointwise interior grids
-    stored with one ghost layer.
+    stored with one or more boundary/ghost layers.
 
     Coarse interior point corresponds to every other fine interior point.
     """
-    Nfx = F.shape[0] - 2
-    Nfy = F.shape[1] - 2
+    Nfx = F.shape[0] - 2 * ngc
+    Nfy = F.shape[1] - 2 * ngc
 
     Ncx = (Nfx + 1) // 2
     Ncy = (Nfy + 1) // 2
 
-    Fc = np.zeros((Ncx + 2, Ncy + 2), dtype=F.dtype)
+    Fc = np.zeros((Ncx + 2 * ngc, Ncy + 2 * ngc), dtype=F.dtype)
 
-    for I in range(1, Ncx + 1):
-        for J in range(1, Ncy + 1):
-            i = 2 * I - 1
-            j = 2 * J - 1
+    for I in range(Ncx):
+        for J in range(Ncy):
+            i = ngc + 2 * I
+            j = ngc + 2 * J
 
-            Fc[I, J] = (
+            Fc[ngc + I, ngc + J] = (
                 4.0 * F[i, j]
                 + 2.0 * (F[i - 1, j] + F[i + 1, j] + F[i, j - 1] + F[i, j + 1])
                 + (F[i - 1, j - 1] + F[i - 1, j + 1] + F[i + 1, j - 1] + F[i + 1, j + 1])
@@ -134,7 +141,11 @@ def restrict_full_weighting(F: np.ndarray) -> np.ndarray:
     return Fc
 
 
-def prolong_bilinear(Ec: np.ndarray, fine_shape: tuple[int, int]) -> np.ndarray:
+def prolong_bilinear(
+    Ec: np.ndarray,
+    fine_shape: tuple[int, int],
+    ngc: int = 1,
+) -> np.ndarray:
     """
     Bilinear prolongation from coarse full grid Ec to fine full grid Ef.
 
@@ -146,14 +157,14 @@ def prolong_bilinear(Ec: np.ndarray, fine_shape: tuple[int, int]) -> np.ndarray:
     which is consistent with the restriction rule
         n_c = (n_f + 1) // 2
 
-    Both Ec and Ef include one ghost-cell layer on each side.
+    Both Ec and Ef include ``ngc`` fixed boundary/ghost layers on each side.
     """
     Ef = np.zeros(fine_shape, dtype=Ec.dtype)
 
-    nxc = Ec.shape[0] - 2
-    nyc = Ec.shape[1] - 2
-    nxf = fine_shape[0] - 2
-    nyf = fine_shape[1] - 2
+    nxc = Ec.shape[0] - 2 * ngc
+    nyc = Ec.shape[1] - 2 * ngc
+    nxf = fine_shape[0] - 2 * ngc
+    nyf = fine_shape[1] - 2 * ngc
 
     valid_x = (nxf == 2 * nxc - 1) or (nxf == 2 * nxc)
     valid_y = (nyf == 2 * nyc - 1) or (nyf == 2 * nyc)
@@ -169,91 +180,104 @@ def prolong_bilinear(Ec: np.ndarray, fine_shape: tuple[int, int]) -> np.ndarray:
 
     # --------------------------------------------------
     # 1) Inject coarse points
-    # coarse (I,J) -> fine (2I-1, 2J-1)
+    # coarse local (I,J) -> fine local (2I, 2J)
     # --------------------------------------------------
-    for I in range(1, nxc + 1):
-        for J in range(1, nyc + 1):
-            i = 2 * I - 1
-            j = 2 * J - 1
-            if i <= nxf and j <= nyf:
-                Ef[i, j] = Ec[I, J]
+    for I in range(nxc):
+        for J in range(nyc):
+            i = 2 * I
+            j = 2 * J
+            if i < nxf and j < nyf:
+                Ef[ngc + i, ngc + j] = Ec[ngc + I, ngc + J]
 
     # --------------------------------------------------
     # 2) Interpolate in x-direction
-    # even i, odd j
+    # odd local i, even local j
     # interior between coarse points
     # --------------------------------------------------
-    for I in range(1, nxc):
-        for J in range(1, nyc + 1):
-            i = 2 * I
-            j = 2 * J - 1
-            if i <= nxf and j <= nyf:
-                Ef[i, j] = 0.5 * (Ec[I, J] + Ec[I + 1, J])
+    for I in range(nxc - 1):
+        for J in range(nyc):
+            i = 2 * I + 1
+            j = 2 * J
+            if i < nxf and j < nyf:
+                Ef[ngc + i, ngc + j] = 0.5 * (
+                    Ec[ngc + I, ngc + J] + Ec[ngc + I + 1, ngc + J]
+                )
 
     # If fine grid has an extra last row (nxf = 2*nxc),
     # fill it by copying the last coarse row.
     if nxf == 2 * nxc:
-        i = nxf
-        for J in range(1, nyc + 1):
-            j = 2 * J - 1
-            if j <= nyf:
-                Ef[i, j] = Ec[nxc, J]
+        i = nxf - 1
+        for J in range(nyc):
+            j = 2 * J
+            if j < nyf:
+                Ef[ngc + i, ngc + j] = Ec[ngc + nxc - 1, ngc + J]
 
     # --------------------------------------------------
     # 3) Interpolate in y-direction
-    # odd i, even j
+    # even local i, odd local j
     # --------------------------------------------------
-    for I in range(1, nxc + 1):
-        for J in range(1, nyc):
-            i = 2 * I - 1
-            j = 2 * J
-            if i <= nxf and j <= nyf:
-                Ef[i, j] = 0.5 * (Ec[I, J] + Ec[I, J + 1])
+    for I in range(nxc):
+        for J in range(nyc - 1):
+            i = 2 * I
+            j = 2 * J + 1
+            if i < nxf and j < nyf:
+                Ef[ngc + i, ngc + j] = 0.5 * (
+                    Ec[ngc + I, ngc + J] + Ec[ngc + I, ngc + J + 1]
+                )
 
     # If fine grid has an extra last column (nyf = 2*nyc),
     # fill it by copying the last coarse column.
     if nyf == 2 * nyc:
-        j = nyf
-        for I in range(1, nxc + 1):
-            i = 2 * I - 1
-            if i <= nxf:
-                Ef[i, j] = Ec[I, nyc]
+        j = nyf - 1
+        for I in range(nxc):
+            i = 2 * I
+            if i < nxf:
+                Ef[ngc + i, ngc + j] = Ec[ngc + I, ngc + nyc - 1]
 
     # --------------------------------------------------
     # 4) Interpolate centers
-    # even i, even j
+    # odd local i, odd local j
     # --------------------------------------------------
-    for I in range(1, nxc):
-        for J in range(1, nyc):
-            i = 2 * I
-            j = 2 * J
-            if i <= nxf and j <= nyf:
-                Ef[i, j] = 0.25 * (
-                    Ec[I, J]
-                    + Ec[I + 1, J]
-                    + Ec[I, J + 1]
-                    + Ec[I + 1, J + 1]
+    for I in range(nxc - 1):
+        for J in range(nyc - 1):
+            i = 2 * I + 1
+            j = 2 * J + 1
+            if i < nxf and j < nyf:
+                Ef[ngc + i, ngc + j] = 0.25 * (
+                    Ec[ngc + I, ngc + J]
+                    + Ec[ngc + I + 1, ngc + J]
+                    + Ec[ngc + I, ngc + J + 1]
+                    + Ec[ngc + I + 1, ngc + J + 1]
                 )
 
     # Extra last row of center-type points if nxf = 2*nxc
     if nxf == 2 * nxc:
-        i = nxf
-        for J in range(1, nyc):
-            j = 2 * J
-            if j <= nyf:
-                Ef[i, j] = 0.5 * (Ec[nxc, J] + Ec[nxc, J + 1])
+        i = nxf - 1
+        for J in range(nyc - 1):
+            j = 2 * J + 1
+            if j < nyf:
+                Ef[ngc + i, ngc + j] = 0.5 * (
+                    Ec[ngc + nxc - 1, ngc + J]
+                    + Ec[ngc + nxc - 1, ngc + J + 1]
+                )
 
     # Extra last column of center-type points if nyf = 2*nyc
     if nyf == 2 * nyc:
-        j = nyf
-        for I in range(1, nxc):
-            i = 2 * I
-            if i <= nxf:
-                Ef[i, j] = 0.5 * (Ec[I, nyc] + Ec[I + 1, nyc])
+        j = nyf - 1
+        for I in range(nxc - 1):
+            i = 2 * I + 1
+            if i < nxf:
+                Ef[ngc + i, ngc + j] = 0.5 * (
+                    Ec[ngc + I, ngc + nyc - 1]
+                    + Ec[ngc + I + 1, ngc + nyc - 1]
+                )
 
     # Bottom-right extra corner if both dimensions are even
     if nxf == 2 * nxc and nyf == 2 * nyc:
-        Ef[nxf, nyf] = Ec[nxc, nyc]
+        Ef[ngc + nxf - 1, ngc + nyf - 1] = Ec[
+            ngc + nxc - 1,
+            ngc + nyc - 1,
+        ]
 
     return Ef
 
@@ -263,14 +287,14 @@ def prolong_bilinear(Ec: np.ndarray, fine_shape: tuple[int, int]) -> np.ndarray:
 # ============================================================
 def coarsen_boundaries(fine_boundaries, coarse_config, mode="error"):
     """
-    Build coarse-grid boundary arrays consistent with BC_2D.py.
+    Build coarse-grid boundary arrays consistent with boundary_conditions.py.
 
     Parameters
     ----------
     fine_boundaries : ignored
         Included only for interface compatibility; with your current setup
         it is more consistent to rebuild boundaries from coarse_config.
-    coarse_config : Config
+    coarse_config : SimulationContext
         Coarse-grid config.
     mode : {"error", "solution"}
         "error"    -> homogeneous Dirichlet BCs for coarse-grid correction
@@ -279,14 +303,14 @@ def coarsen_boundaries(fine_boundaries, coarse_config, mode="error"):
     Returns
     -------
     boundaries : list[np.ndarray]
-        [phi_xL, phi_xR, phi_yB, phi_yT]
+        [phi_xL, phi_xR, phi_yB, phi_yT], each shaped (ngc, side_length)
     """
     if mode == "error":
         # For the error equation, use homogeneous Dirichlet BCs.
-        phi_xL = np.zeros_like(coarse_config.y)
-        phi_xR = np.zeros_like(coarse_config.y)
-        phi_yB = np.zeros_like(coarse_config.x)
-        phi_yT = np.zeros_like(coarse_config.x)
+        phi_xL = np.zeros((coarse_config.ngc, len(coarse_config.y)))
+        phi_xR = np.zeros((coarse_config.ngc, len(coarse_config.y)))
+        phi_yB = np.zeros((coarse_config.ngc, len(coarse_config.x)))
+        phi_yT = np.zeros((coarse_config.ngc, len(coarse_config.x)))
         return [phi_xL, phi_xR, phi_yB, phi_yT]
 
     elif mode == "solution":
@@ -300,43 +324,49 @@ def coarsen_boundaries(fine_boundaries, coarse_config, mode="error"):
 
 def build_coarse_config(fine_config, coarse_f_all, nx_coarse=None, ny_coarse=None):
     """
-    Build a coarse Config object consistent with the current Config implementation.
+    Build a coarse simulation context from the fine-grid settings.
 
     Parameters
     ----------
-    fine_config : Config
+    fine_config : SimulationContext
         Fine-grid config.
     coarse_f_all : np.ndarray
         Coarse-grid RHS array to store in coarse_config.f_all.
         This should already have the full coarse-grid shape, matching coarse U.
     nx_coarse, ny_coarse : int or None
-        Total coarse-grid sizes INCLUDING ghost layers.
-        If omitted, infer from coarse_f_all.shape.
+        Coarse-grid interior counts. If omitted, infer them from
+        coarse_f_all.shape and fine_config.ngc.
 
     Returns
     -------
-    coarse_config : Config
+    coarse_config : SimulationContext
     """
-    if nx_coarse is None or ny_coarse is None:
-        nx_coarse, ny_coarse = coarse_f_all.shape
-
-    coarse_config = Config(
-        problem=fine_config.problem,
-        poisson_problem=fine_config.poisson_problem,
-        method=fine_config.method,
-        bc_type=fine_config.bc_type,
-        Nx=nx_coarse,
-        Ny=ny_coarse,
-        cfl=fine_config.cfl,
-        omega=fine_config.omega,
-        iter_max=fine_config.iter_max,
-        norm=fine_config.norm,
-        f=fine_config.f,
-        phi_exact=fine_config.phi_exact,
-        mg_config=fine_config.mg_config,
-        h_unsplit_config=fine_config.h_unsplit_config,
-        multigrid=fine_config.multigrid,
+    inferred_nx = coarse_f_all.shape[0] - 2 * fine_config.ngc
+    inferred_ny = coarse_f_all.shape[1] - 2 * fine_config.ngc
+    if nx_coarse is None:
+        nx_coarse = inferred_nx
+    if ny_coarse is None:
+        ny_coarse = inferred_ny
+    expected_shape = (
+        nx_coarse + 2 * fine_config.ngc,
+        ny_coarse + 2 * fine_config.ngc,
     )
+    if coarse_f_all.shape != expected_shape:
+        raise ValueError(
+            f"coarse_f_all has shape {coarse_f_all.shape}, expected {expected_shape} "
+            f"for interior counts ({nx_coarse}, {ny_coarse})."
+        )
+
+    coarse_settings = replace(
+        fine_config.settings,
+        grid=replace(
+            fine_config.settings.grid,
+            Nx=nx_coarse,
+            Ny=ny_coarse,
+            ghost_layers=fine_config.ngc,
+        ),
+    )
+    coarse_config = initialize_simulation(coarse_settings)
 
     # Override the automatically built RHS with the one actually needed
     # for the coarse-grid problem.
@@ -406,6 +436,7 @@ def v_cycle(
     boundaries,
     config,
     full_sweep,
+    get_params=None,
 ):
     """
     Perform one multigrid V-cycle on the equation L(U)=f.
@@ -425,8 +456,8 @@ def v_cycle(
     min_coarse_n, restriction, prolongation = mg.min_coarse_n, mg.restriction, mg.prolongation
     nu1, nu2 = mg.nu1, mg.nu2
 
-    nx = U.shape[0] - 2
-    ny = U.shape[1] - 2
+    nx = config.Nx
+    ny = config.Ny
 
     # Base case: solve approximately on coarsest level
     if min(nx, ny) <= min_coarse_n:
@@ -451,9 +482,9 @@ def v_cycle(
     # 3. Restrict residual to coarse grid
     # --------------------------------------------------------
     if restriction == "injection":
-        r_c = restrict_injection(r_f)
+        r_c = restrict_injection(r_f, config.ngc)
     elif restriction == "full_weighting":
-        r_c = restrict_full_weighting(r_f)
+        r_c = restrict_full_weighting(r_f, config.ngc)
     else:
         raise ValueError(f"Unknown restriction: {restriction}")
 
@@ -465,23 +496,25 @@ def v_cycle(
 
     coarse_config = build_coarse_config(config, coarse_f_all=coarse_f_all)
     coarse_boundaries = coarsen_boundaries(boundaries, coarse_config, mode="error")
+    coarse_params = get_params(coarse_config) if get_params is not None else params
 
     e_c0 = coarse_config.U0.copy()
     bc.apply_bcs_poisson_2d(e_c0, coarse_config, coarse_boundaries)
 
     e_c = v_cycle(
         U=e_c0,
-        params=params,
+        params=coarse_params,
         boundaries=coarse_boundaries,
         config=coarse_config,
         full_sweep=full_sweep,
+        get_params=get_params,
     )
 
     # --------------------------------------------------------
     # 5. Prolong and correct
     # --------------------------------------------------------
     if prolongation == "bilinear":
-        e_f = prolong_bilinear(e_c, U.shape)
+        e_f = prolong_bilinear(e_c, U.shape, config.ngc)
     else:
         raise ValueError(f"Unknown prolongation: {prolongation}")
 
@@ -506,6 +539,7 @@ def solve_multigrid(
     config,
     full_sweep,
     verbose: bool = True,
+    get_params=None,
 ):
     """
     Solve using repeated V-cycles.
@@ -563,6 +597,7 @@ def solve_multigrid(
             boundaries=boundaries,
             config=config,
             full_sweep=full_sweep,
+            get_params=get_params,
         )
 
         # Re-apply BCs on the corrected fine-grid solution
@@ -585,7 +620,7 @@ def solve_multigrid(
         # residual norm (diagnostic)
         # -------------------------
         if f_all is not None:
-            L = get_all_laplace(U, config)
+            L = get_all_laplace(U, config, config.laplacian_stencil)
             R = L - f_all
             res_residual = np.linalg.norm(R[ib:ie+1, jb:je+1], ord=norm)
             if norm in [1, 2, "fro"]:
@@ -671,6 +706,7 @@ def fmg_cycle(
     boundaries,
     config,
     full_sweep,
+    get_params=None,
 ):
     """
     Full Multigrid (FMG) recursive initialization.
@@ -692,8 +728,8 @@ def fmg_cycle(
     min_coarse_n, restriction, prolongation = mg.min_coarse_n, mg.restriction, mg.prolongation
     coarse_max_sweeps, coarse_tol = mg.coarse_max_sweeps, mg.coarse_tol
 
-    nx_int = config.Nx - 2
-    ny_int = config.Ny - 2
+    nx_int = config.Nx
+    ny_int = config.Ny
 
     # ------------------------------------------------------------
     # Base case: approximately solve directly on the coarsest grid
@@ -724,30 +760,32 @@ def fmg_cycle(
     # Restrict the original RHS to the next coarser grid
     # ------------------------------------------------------------
     if restriction == "injection":
-        f_c = restrict_injection(config.f_all)
+        f_c = restrict_injection(config.f_all, config.ngc)
     elif restriction == "full_weighting":
-        f_c = restrict_full_weighting(config.f_all)
+        f_c = restrict_full_weighting(config.f_all, config.ngc)
     else:
         raise ValueError(f"Unknown restriction: {restriction}")
 
     coarse_config = build_coarse_config(config, coarse_f_all=f_c)
     coarse_boundaries = coarsen_boundaries(boundaries, coarse_config, mode="solution")
+    coarse_params = get_params(coarse_config) if get_params is not None else params
 
     # ------------------------------------------------------------
     # Recursively solve the coarse-grid solution problem
     # ------------------------------------------------------------
     U_c = fmg_cycle(
-        params=params,
+        params=coarse_params,
         boundaries=coarse_boundaries,
         config=coarse_config,
         full_sweep=full_sweep,
+        get_params=get_params,
     )
 
     # ------------------------------------------------------------
     # Prolong coarse solution to this level
     # ------------------------------------------------------------
     if prolongation == "bilinear":
-        U = prolong_bilinear(U_c, config.U0.shape)
+        U = prolong_bilinear(U_c, config.U0.shape, config.ngc)
     else:
         raise ValueError(f"Unknown prolongation: {prolongation}")
 
@@ -762,6 +800,7 @@ def fmg_cycle(
         boundaries=boundaries,
         config=config,
         full_sweep=full_sweep,
+        get_params=get_params,
     )
 
     bc.apply_bcs_poisson_2d(U, config, boundaries)
@@ -778,6 +817,7 @@ def solve_fmg(
     config,
     full_sweep,
     verbose: bool = True,
+    get_params=None,
 ):
     """
     Solve using FMG initialization followed by repeated V-cycles until convergence.
@@ -831,6 +871,7 @@ def solve_fmg(
         boundaries=boundaries,
         config=config,
         full_sweep=full_sweep,
+        get_params=get_params,
     )
 
     bc.apply_bcs_poisson_2d(U, config, boundaries)
@@ -851,7 +892,7 @@ def solve_fmg(
     update_hist.append(res_update)
 
     if f_all is not None:
-        L = get_all_laplace(U, config)
+        L = get_all_laplace(U, config, config.laplacian_stencil)
         R = L - f_all
         res_residual = np.linalg.norm(R[ib:ie+1, jb:je+1], ord=norm)
         if norm in [1, 2, "fro"]:
@@ -900,6 +941,7 @@ def solve_fmg(
             boundaries=boundaries,
             config=config,
             full_sweep=full_sweep,
+            get_params=get_params,
         )
 
         bc.apply_bcs_poisson_2d(U, config, boundaries)
@@ -920,7 +962,7 @@ def solve_fmg(
         # residual norm (diagnostic)
         # -------------------------
         if f_all is not None:
-            L = get_all_laplace(U, config)
+            L = get_all_laplace(U, config, config.laplacian_stencil)
             R = L - f_all
             res_residual = np.linalg.norm(R[ib:ie+1, jb:je+1], ord=norm)
             if norm in [1, 2, "fro"]:
@@ -1029,9 +1071,21 @@ def solve(config, get_params, full_sweep):
     # coarse_tol = 1e-6
 
     if solver == "rep_v_cycles":
-        U, t, cycle_count, histories = solve_multigrid(params, boundaries, config, full_sweep,)
+        U, t, cycle_count, histories = solve_multigrid(
+            params,
+            boundaries,
+            config,
+            full_sweep,
+            get_params=get_params,
+        )
     elif solver == "fmg":
-        U, t, cycle_count, histories = solve_fmg(params, boundaries, config, full_sweep,)
+        U, t, cycle_count, histories = solve_fmg(
+            params,
+            boundaries,
+            config,
+            full_sweep,
+            get_params=get_params,
+        )
     else:
         raise ValueError(f"Unknown solver: {solver}")
 

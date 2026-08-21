@@ -1,10 +1,17 @@
-import BC_2D as bc
-from methods.Poisson.poisson_helpers import *
+import boundary_conditions as bc
+from methods.poisson.poisson_helpers import *
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 
 
 def get_params(config):
+    if config.laplacian_stencil != "centered":
+        raise NotImplementedError(
+            "h_ADI currently supports only laplacian_stencil='centered'."
+        )
+    if config.ngc != 1:
+        raise NotImplementedError("h_ADI currently supports only ghost_layers=1.")
+
     # get parameters from config class
     cfl, dx, dy, Nx, Ny = config.cfl, config.dx, config.dy, config.Nx, config.Ny
 
@@ -15,12 +22,12 @@ def get_params(config):
     ### set up matrices for implicit-explicit systems ###
 
     # Sparse tridiagonals (1st derivatives)
-    Dx = sp.diags([-1.0, 1.0], offsets=[-1, 0], shape=(Nx - 2, Nx - 2), format="csr") / dx
-    Dy = sp.diags([-1.0, 1.0], offsets=[-1, 0], shape=(Ny - 2, Ny - 2), format="csr") / dy
+    Dx = sp.diags([-1.0, 1.0], offsets=[-1, 0], shape=(Nx, Nx), format="csr") / dx
+    Dy = sp.diags([-1.0, 1.0], offsets=[-1, 0], shape=(Ny, Ny), format="csr") / dy
 
     # Sparse tridiagonals (2nd derivatives)
-    Dxx = sp.diags([1.0, -2.0, 1.0], offsets=[-1, 0, 1], shape=(Nx - 2, Nx - 2), format="csr") / (dx ** 2)
-    Dyy = sp.diags([1.0, -2.0, 1.0], offsets=[-1, 0, 1], shape=(Ny - 2, Ny - 2), format="csr") / (dy ** 2)
+    Dxx = sp.diags([1.0, -2.0, 1.0], offsets=[-1, 0, 1], shape=(Nx, Nx), format="csr") / (dx ** 2)
+    Dyy = sp.diags([1.0, -2.0, 1.0], offsets=[-1, 0, 1], shape=(Ny, Ny), format="csr") / (dy ** 2)
 
     # Dx_Dy = Dx + Dy
     lhs_x = Dx - (0.5 * dt * Dxx)
@@ -56,7 +63,7 @@ def get_params(config):
     return params
 
 
-# maybe should pass extra parameters to main `solve` method in poisson2D
+# maybe should pass extra parameters to main `solve` method in poisson
 # because this full sweep needs an extra timestep? (U_old_half/Unm1)
 
 def full_sweep(U, params, boundaries, config):
@@ -82,7 +89,7 @@ def leapfrog_update(U, U_old_half, params, solve_x, solve_y, dt, boundaries):
     omega, f_all = params.omega, params.f_all
 
     U_old = U.copy()
-    phi_xL, phi_xR, phi_yB, phi_yT = boundaries
+    phi_xL, phi_xR, phi_yB, phi_yT = [side[0] for side in boundaries]
 
     # ----------------------------
     # 1) x-implicit, y-explicit
@@ -162,7 +169,7 @@ def bdf1_update(U, Unm1, params, solve_x, solve_y, dt, boundaries):
     omega, f_all = params.omega, params.f_all
 
     U_old = U.copy()
-    phi_xL, phi_xR, phi_yB, phi_yT = boundaries
+    phi_xL, phi_xR, phi_yB, phi_yT = [side[0] for side in boundaries]
 
     # ----------------------------
     # 1) x-implicit, y-explicit
@@ -231,5 +238,3 @@ def bdf1_update(U, Unm1, params, solve_x, solve_y, dt, boundaries):
     bc.apply_bcs_poisson_2d(U_new, params, boundaries)
 
     return U_new
-
-
