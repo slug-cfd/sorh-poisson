@@ -65,58 +65,80 @@ uv run python tests/collect_figure4_data.py --omega-data results/final_report_fi
 collectors write concise CSV files under
 `1D/results/final_report_figure_data/consistency_rerun_20260801/`.
 
-The scripts for figure generation are separate from the data collection scripts and are located under `1D/diagnostics/plot_report_figures.py`.
+Generate the report figures from the collected data, or create the standalone
+problem-setup and spectral-radius figures, with:
+
+```bash
+uv run python diagnostics/plot_report_figures.py --help
+uv run python diagnostics/plot_problem_setup.py --help
+uv run python diagnostics/plot_spectral_radius_overlay.py --help
+```
 
 ## 2D
 
-The `2D/` directory contains the two-dimensional solver experiments.
+The `2D/` workspace contains config-driven Poisson, nonlinear-diffusion, and
+linear-diffusion solvers.
+
+The configuration pipeline is explicit: `load_config()` returns declarative
+`Config` settings, and `initialize_simulation()` builds the solver-ready
+`SimulationContext` containing the grid, resolved problem, and arrays.
 
 ```text
 2D/
-  main.py                 # main config-driven 2D driver
-  config.py               # 2D config dataclasses and defaults
-  load_config.py          # JSON config loader
-  config_sample.json      # default run configuration
-  config_storage.py       # stored method/omega tables
-  run_record.py           # run result/record dataclasses
-  BC_2D.py                # boundary condition helpers
-  methods/                # Poisson and toy-problem method implementations
-  problems/               # problem definitions and Poisson test registry
-  tests/                  # test and benchmark scripts
-  diagnostics/            # analysis, plotting, and diagnostics scripts
-  results/                # generated 2D outputs
+  main.py              # command-line entry point
+  configuration/       # settings, JSON loading, and explicit initialization
+  config_sample.json   # small default Poisson run
+  configs/             # named Poisson and nonlinear examples
+  methods/             # numerical methods by equation type
+  problems/            # problem definitions and registries
+  tests/               # smoke checks, validations, benchmarks, and studies
+    unit/              # deterministic unittest suite
+  diagnostics/         # plotting and analysis scripts
+  results/             # generated output (normally not committed)
 ```
 
-Run the default 2D simulation:
+Run the small default case or a named example:
 
 ```bash
 cd 2D
 uv run python main.py
+uv run python main.py --config configs/config_poisson.json
+uv run python main.py --config configs/config_nonlinear.json --output results/nonlinear_record.json
 ```
 
-You can also run it from the repository root:
+The driver writes `results/test_record.json` by default. Plotting is off by
+default; set `output.plot` or `output.plot_exact` in a config, or use
+`--plot`/`--plot-exact` on the command line. Command-line flags override the
+config and have matching `--no-plot` forms.
+
+For nonlinear diffusion, `problem.coefficient` selects `regularized` or
+`constant` coefficients and `problem.initial_condition` selects `zero` or
+`linear_x`. The regularization default `0.0` gives `u/(1+u)`; positive values
+reduce degeneracy while preserving `v(1)=0.5`. For nonlinear `p_unsplit`, set
+`methods.p_unsplit.coefficient_mode` to `pointwise` (default) or
+`frozen_per_sweep`.
+
+Poisson cases can override their declared constants through
+`problem.parameters`; diagnostics use this for parameter studies without
+modifying registered problem definitions.
+
+Run the bounded smoke check or the unit suite:
 
 ```bash
-uv run python 2D/main.py
+uv run python tests/smoke.py
+uv run python -m unittest discover -s tests/unit -t . -p 'test_*.py'
 ```
 
-Check that the 2D config loads correctly:
+Run standalone 2D diagnostics as package modules from `2D/`; use `--help` to
+see their inputs and output locations:
 
 ```bash
-cd 2D
-uv run python load_config.py
+uv run python -m diagnostics.plot_two_blob_problem --help
+uv run python -m diagnostics.plot_two_blob_results --help
+uv run python -m diagnostics.plot_nonlinear_thesis_results --help
+uv run python -m diagnostics.diagnose_polar_star --help
+uv run python -m diagnostics.analyze_sorh_spectrum --help
 ```
-
-Change simulation parameters by editing `2D/config_sample.json`. The main parameters are the selected `problem`, `poisson_problem`, `method`, grid size, `omega`, iteration limit, multigrid flag, and hyperbolic-direction controls. The main driver reads this JSON and writes a run record to `2D/results/test_record.json`.
-
-Run the directional-ridge benchmark:
-
-```bash
-cd 2D
-uv run python tests/tests_directional_ridge.py
-```
-
-General 2D helper routines live in `2D/tests/tests_2D.py`. Plotting and diagnostics scripts live in `2D/diagnostics/`.
 
 ## Outputs
 

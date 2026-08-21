@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a Python 3.12 research codebase for numerical solver experiments. The `2D/` directory contains the two-dimensional code: `2D/main.py` is the entry point, `2D/config.py`, `2D/load_config.py`, and `2D/config_sample.json` handle runtime configuration, `2D/problems/` stores problem definitions, and `2D/methods/` stores solver implementations including `2D/methods/Poisson/` and `2D/methods/ToyProblem/`. The `2D/tests/` directory contains 2D test and benchmark helpers, while `2D/diagnostics/` contains analysis and plotting scripts. The `1D/` directory contains the one-dimensional code: `1D/main.py` is the entry point, `1D/config1D.py`, `1D/load_config1D.py`, and `1D/config_sample1D.json` handle runtime configuration, `1D/methods/` stores solvers, `1D/tests/` contains test and benchmark helpers, and `1D/diagnostics/` contains analysis, plotting, and spectral-radius scripts. Generated outputs are written to `2D/results/` and `1D/results/`; avoid committing new large result files unless they are intentionally part of an experiment record. Older implementations are kept in `archive/`.
+This is a Python 3.12 research codebase for numerical solver experiments. The `2D/` directory contains the two-dimensional code: `2D/main.py` is the entry point, `2D/configuration/` contains declarative settings, JSON loading, runtime types, and explicit initialization, and the JSON files in `2D/configs/` contain reusable settings. `2D/problems/` stores problem definitions, and `2D/methods/` stores solver implementations including `2D/methods/poisson/`, `2D/methods/nonlinear_diffusion/`, and `2D/methods/linear_diffusion.py`. The `2D/tests/unit/` directory contains deterministic unit tests; the top level of `2D/tests/` contains smoke checks, validation scripts, and benchmarks, while named subdirectories contain larger studies. `2D/diagnostics/` contains analysis and plotting scripts. The `1D/` directory contains the one-dimensional code: `1D/main.py` is the entry point, `1D/config1D.py`, `1D/load_config1D.py`, and `1D/config_sample1D.json` handle runtime configuration, `1D/methods/` stores solvers, `1D/tests/` contains test and benchmark helpers, and `1D/diagnostics/` contains analysis, plotting, and spectral-radius scripts. Generated outputs are written to `2D/results/` and `1D/results/`; avoid committing new large result files unless they are intentionally part of an experiment record. Older implementations are kept in `archive/`.
 
 ## Build, Test, and Development Commands
 
@@ -23,10 +23,10 @@ Run config loading as a quick sanity check:
 
 ```bash
 cd 2D
-uv run python load_config.py
+uv run python -c 'from configuration import load_config; print(load_config("config_sample.json"))'
 ```
 
-Use `2D/tests/tests_2D.py` as a helper module for experiment sweeps and comparisons; it is not currently a pytest-style suite. Run the directional-ridge benchmark with:
+Use `2D/tests/smoke.py` for a bounded solver check. Run the directional-ridge benchmark with:
 
 ```bash
 cd 2D
@@ -47,12 +47,14 @@ cd 1D
 uv run python load_config1D.py
 ```
 
-Use `1D/tests/tests_1D.py` for 1D experiment generation and `1D/diagnostics/analysis.py` for generated-result analysis:
+Use the report-data collectors under `1D/tests/`, then create the report and
+problem-definition figures with the current diagnostics:
 
 ```bash
 cd 1D
-uv run python tests/tests_1D.py --Ns 16 32
-uv run python diagnostics/analysis.py
+uv run python tests/collect_figure3_data.py
+uv run python diagnostics/plot_report_figures.py --help
+uv run python diagnostics/plot_problem_setup.py --help
 ```
 
 ## Coding Style & Naming Conventions
@@ -61,7 +63,7 @@ Use 4-space indentation and keep code compatible with Python 3.12. Prefer explic
 
 ## Testing Guidelines
 
-There is no configured coverage target or formal test framework. Validate changes by running a small `2D/config_sample.json` case through `2D/main.py` and checking convergence output plus `2D/results/test_record.json`. When adding solver behavior, add a small deterministic helper or comparison in `2D/tests/` and keep runtime bounded by using modest grid sizes such as `Nx=32`, `Ny=32`.
+There is no configured coverage target. Run the deterministic 2D unit suite from `2D/` with `uv run python -m unittest discover -s tests/unit -t . -p 'test_*.py'`. Validate broader solver changes with `2D/tests/smoke.py` or a small `2D/config_sample.json` case through `2D/main.py`. Add isolated behavior checks under `2D/tests/unit/`; reserve the top-level test scripts for bounded smoke checks, validations, and benchmarks.
 
 ## Commit & Pull Request Guidelines
 
