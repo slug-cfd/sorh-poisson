@@ -1,19 +1,16 @@
 import argparse
 from dataclasses import dataclass
+import math
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import pandas as pd
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
-DEFAULT_DATA_DIR = (
-    BASE_DIR
-    / "results"
-    / "final_report_figure_data"
-    / "consistency_rerun_20260801"
-)
+DEFAULT_DATA_DIR = BASE_DIR / "results" / "final_report_figure_data"
 DEFAULT_FIGURE_DIR = BASE_DIR / "results" / "report_figures"
 DEFAULT_FIGURE3_DATA_DIR = DEFAULT_DATA_DIR
 DEFAULT_FIGURE4_DATA_DIR = DEFAULT_DATA_DIR
@@ -22,15 +19,53 @@ FIGURE5_ENABLED = False
 
 METHOD_ORDER = ["Jacobi", "GS", "SORp", "SORh"]
 SOR_ORDER = ["SORh", "SORp"]
+SORH_COLOR = "#3D8DFF"
+SORP_COLOR = "#E87521"
+GS_COLOR = "#4B5563"
+JACOBI_COLOR = "#737E8C"
+EXACT_COLOR = "#252525"
+SECONDARY_COLOR = "#8993A0"
+LINEAR_OPTIMUM_COLOR = "#007C78"
+NONLINEAR_OPTIMUM_COLOR = "#A64D79"
 METHOD_STYLES = {
-    "Jacobi": {"color": "#3b82f6", "marker": "o", "linestyle": "-"},
-    "GS": {"color": "#10b981", "marker": "s", "linestyle": "-"},
-    "SORp": {"color": "#f59e0b", "marker": "^", "linestyle": "-"},
-    "SORh": {"color": "#ef4444", "marker": "D", "linestyle": "-"},
+    "Jacobi": {
+        "color": JACOBI_COLOR,
+        "marker": "v",
+        "linestyle": "--",
+        "markerfacecolor": "white",
+    },
+    "GS": {"color": GS_COLOR, "marker": "D", "linestyle": "-"},
+    "SORp": {"color": SORP_COLOR, "marker": "s", "linestyle": "-"},
+    "SORh": {
+        "color": SORH_COLOR,
+        "marker": "o",
+        "linestyle": "-",
+        "markerfacecolor": "white",
+    },
 }
-PREDICTED_STYLE = {"color": "#475569", "marker": "o", "linestyle": "--"}
-EXPERIMENTAL_STYLE = {"color": "#ef4444", "marker": "D", "linestyle": "-"}
-NONLINEAR_STYLE = {"color": "#10b981", "marker": "s", "linestyle": "-."}
+
+
+def configure_style():
+    plt.rcParams.update(
+        {
+            "font.family": "DejaVu Sans",
+            "font.size": 11,
+            "axes.labelsize": 11,
+            "axes.titlesize": 12,
+            "axes.edgecolor": "#4B5563",
+            "axes.linewidth": 0.9,
+            "legend.fontsize": 9.5,
+            "xtick.labelsize": 10,
+            "ytick.labelsize": 10,
+            "grid.color": "#D9DEE5",
+            "grid.alpha": 0.75,
+            "grid.linewidth": 0.7,
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+            "savefig.facecolor": "white",
+            "savefig.transparent": False,
+        }
+    )
 
 
 @dataclass
@@ -117,6 +152,100 @@ def numeric_columns(df, columns):
     return df
 
 
+def validate_linear_sorh_omega(df, omega_column, source_name):
+    group = df[df["method_label"] == "SORh"].copy()
+    if group.empty or omega_column not in group:
+        raise ValueError(f"{source_name} is missing SORh {omega_column} values.")
+
+    if "N" in group:
+        total_intervals = pd.to_numeric(group["N"], errors="coerce")
+    else:
+        total_intervals = pd.to_numeric(group["interior_unknowns"], errors="coerce") + 1
+    observed = pd.to_numeric(group[omega_column], errors="coerce")
+    predicted = total_intervals.map(lambda value: 1.0 / (1.0 + math.sin(math.pi / value)))
+    offsets = (observed - predicted).abs()
+    if offsets.isna().any() or (offsets > 0.05).any():
+        bad_rows = group.loc[offsets.isna() | (offsets > 0.05), ["interior_unknowns", omega_column]]
+        raise ValueError(
+            f"{source_name} contains SORh linear optima inconsistent with the spectral "
+            f"prediction:\n{bad_rows.to_string(index=False)}"
+        )
+
+
+def load_figure3_data(data_dir, config):
+    linear = load_csv(data_dir / config.data_file)
+
+    combined_columns = {"omega_formula", "omega_linear", "omega_nonlinear"}
+    if combined_columns.issubset(linear.columns):
+        result = numeric_columns(
+            linear,
+            ["N", "interior_unknowns", "omega_formula", "omega_linear", "omega_nonlinear"],
+        )
+        validate_linear_sorh_omega(result, "omega_linear", config.data_file)
+        return result
+
+    required_linear = {
+        "problem",
+        "method_label",
+        "N",
+        "interior_unknowns",
+        "omega_predicted",
+        "omega_experimental",
+    }
+    if not required_linear.issubset(linear.columns):
+        missing = sorted(required_linear - set(linear.columns))
+        raise ValueError(f"{config.data_file} is missing required columns: {missing}")
+
+    linear = numeric_columns(
+        linear,
+        ["N", "interior_unknowns", "omega_predicted", "omega_experimental"],
+    )
+    linear = linear[linear["problem"] == "linear"].copy()
+    linear = linear[
+        ["method_label", "N", "interior_unknowns", "omega_predicted", "omega_experimental"]
+    ].rename(
+        columns={
+            "omega_predicted": "omega_formula",
+            "omega_experimental": "omega_linear",
+        }
+    )
+
+    nonlinear_path = data_dir / "omega_optima_selected.csv"
+    nonlinear = load_csv(nonlinear_path)
+    required_nonlinear = {
+        "problem",
+        "method_label",
+        "N",
+        "interior_unknowns",
+        "omega_experimental",
+    }
+    if not required_nonlinear.issubset(nonlinear.columns):
+        missing = sorted(required_nonlinear - set(nonlinear.columns))
+        raise ValueError(f"{nonlinear_path.name} is missing required columns: {missing}")
+    nonlinear = numeric_columns(
+        nonlinear,
+        ["N", "interior_unknowns", "omega_experimental"],
+    )
+    nonlinear = nonlinear[nonlinear["problem"] == "nonlinear"].copy()
+    nonlinear = nonlinear[
+        ["method_label", "N", "interior_unknowns", "omega_experimental"]
+    ].rename(columns={"omega_experimental": "omega_nonlinear"})
+
+    result = linear.merge(
+        nonlinear,
+        on=["method_label", "N", "interior_unknowns"],
+        how="inner",
+        validate="one_to_one",
+    )
+    expected_rows = len(SOR_ORDER) * 5
+    if len(result) != expected_rows:
+        raise ValueError(
+            f"Canonical Figure 3 merge produced {len(result)} rows; expected {expected_rows}."
+        )
+    validate_linear_sorh_omega(result, "omega_linear", config.data_file)
+    return result
+
+
 def configure_log2_x(ax, Ns, xlabel="Interior unknowns"):
     ticks = sorted(int(value) for value in Ns)
     ax.set_xscale("log", base=2)
@@ -135,23 +264,97 @@ def line_by_method(ax, df, y_col, ylabel):
             group["interior_unknowns"],
             group[y_col],
             label=method,
-            linewidth=1.8,
-            markersize=4,
+            linewidth=2.25,
+            markersize=6,
+            markeredgewidth=1.2,
             **style,
         )
-    configure_log2_x(ax, df["interior_unknowns"].unique(), xlabel="Interior Unknowns (N)")
+    configure_log2_x(ax, df["interior_unknowns"].unique(), xlabel="Interior unknowns, N")
     ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.3)
+    ax.grid(True, which="major")
+
+
+def add_nonlinear_scaling_guides(ax, df):
+    """Add neutral O(N) and O(N^2) references to Figure 3.2's sweep-count panel."""
+    groups = {
+        method: df[df["method_label"] == method].sort_values("interior_unknowns")
+        for method in SOR_ORDER
+    }
+    if any(group.empty for group in groups.values()):
+        return
+
+    sorh = groups["SORh"]
+    sorp = groups["SORp"]
+    Ns = sorh["interior_unknowns"].tolist()
+    if Ns != sorp["interior_unknowns"].tolist() or len(Ns) < 2:
+        return
+
+    # Anchor the guides just below the measured curves so they communicate slope
+    # without competing with the method colors or obscuring the data markers.
+    reference_N = Ns[1]
+    sorh_anchor = 0.78 * float(sorh.iloc[1]["iter_count"])
+    sorp_anchor = 0.72 * float(sorp.iloc[1]["iter_count"])
+    linear_guide = [sorh_anchor * (N / reference_N) for N in Ns]
+    quadratic_guide = [sorp_anchor * (N / reference_N) ** 2 for N in Ns]
+
+    guide_style = {
+        "color": "#000000",
+        "linewidth": 1.8,
+        "zorder": 1,
+    }
+    ax.plot(Ns, linear_guide, linestyle=":", **guide_style)
+    ax.plot(Ns, quadratic_guide, linestyle=":", **guide_style)
+
+    label_style = {
+        "color": "#000000",
+        "fontsize": 10.5,
+        "fontweight": "semibold",
+        "ha": "left",
+        "va": "center",
+        "bbox": {
+            "boxstyle": "round,pad=0.16",
+            "facecolor": "white",
+            "edgecolor": "none",
+            "alpha": 1.0,
+        },
+        "zorder": 4,
+    }
+    label_index = max(1, len(Ns) - 2)
+    ax.annotate(
+        r"$O(N)$ guide",
+        xy=(Ns[label_index], linear_guide[label_index]),
+        xytext=(10, -9),
+        textcoords="offset points",
+        **label_style,
+    )
+    ax.annotate(
+        r"$O(N^2)$ guide",
+        xy=(Ns[label_index], quadratic_guide[label_index]),
+        xytext=(10, -9),
+        textcoords="offset points",
+        **label_style,
+    )
 
 
 def plot_performance(data_dir, config):
     df = load_csv(data_dir / config.data_file)
-    df = numeric_columns(df, ["N", "interior_unknowns", "iter_count", "elapsed_sec"])
-    fig, axes = plt.subplots(1, 2, figsize=config.figsize, constrained_layout=True)
+    df = numeric_columns(df, ["N", "interior_unknowns", "omega", "iter_count", "elapsed_sec"])
+    if config.number == 1:
+        validate_linear_sorh_omega(df, "omega", config.data_file)
+    gridspec_kw = {"width_ratios": (1.55, 1.0)} if config.number == 2 else None
+    fig, axes = plt.subplots(
+        1,
+        2,
+        figsize=config.figsize,
+        constrained_layout=True,
+        gridspec_kw=gridspec_kw,
+    )
     line_by_method(axes[0], df, "iter_count", "Iterations")
     line_by_method(axes[1], df, "elapsed_sec", "Runtime (s)")
     axes[0].set_yscale("log", base=10)
     axes[1].set_yscale("log", base=10)
+    if config.number == 2:
+        add_nonlinear_scaling_guides(axes[0], df)
     axes[0].set_title("Iterations")
     axes[1].set_title("Runtime")
     axes[1].legend(frameon=False)
@@ -160,49 +363,79 @@ def plot_performance(data_dir, config):
 
 
 def plot_figure3(data_dir, config):
-    df = load_csv(data_dir / config.data_file)
-    df = numeric_columns(
-        df,
-        [
-            "N",
-            "interior_unknowns",
-            "omega_formula",
-            "omega_linear",
-            "omega_nonlinear",
-        ],
-    )
+    df = load_figure3_data(data_dir, config)
     fig, axes = plt.subplots(1, 2, figsize=config.figsize, constrained_layout=True)
     for ax, method in zip(axes, SOR_ORDER, strict=True):
         group = df[df["method_label"] == method].sort_values("N")
         ax.plot(
             group["interior_unknowns"],
             group["omega_formula"],
-            label="Linear formula",
-            linewidth=1.8,
-            markersize=4,
-            **PREDICTED_STYLE,
+            label="Linear spectral prediction",
+            color=EXACT_COLOR,
+            linewidth=2.25,
+            linestyle=":",
         )
         ax.plot(
             group["interior_unknowns"],
             group["omega_linear"],
             label="Linear experimental optimum",
-            linewidth=1.8,
-            markersize=4,
-            **EXPERIMENTAL_STYLE,
+            color=LINEAR_OPTIMUM_COLOR,
+            marker="o",
+            markerfacecolor="white",
+            markeredgewidth=1.2,
+            linewidth=2.25,
+            markersize=6,
+            linestyle="-",
         )
         ax.plot(
             group["interior_unknowns"],
             group["omega_nonlinear"],
             label="Nonlinear experimental optimum",
-            linewidth=1.8,
-            markersize=4,
-            **NONLINEAR_STYLE,
+            color=NONLINEAR_OPTIMUM_COLOR,
+            marker="s",
+            markeredgewidth=1.2,
+            linewidth=2.25,
+            markersize=5.5,
+            linestyle="--",
         )
-        configure_log2_x(ax, group["interior_unknowns"].unique(), xlabel="Interior Unknowns (M)")
-        ax.set_title(method)
+        configure_log2_x(ax, group["interior_unknowns"].unique(), xlabel="Interior unknowns, N")
+        ax.set_title(method, color="black")
         ax.set_ylabel(r"$\omega_{\mathrm{opt}}$")
-        ax.grid(True, alpha=0.3)
-    handles, labels = axes[1].get_legend_handles_labels()
+        ax.grid(True, which="major")
+    handles = [
+        Line2D(
+            [0],
+            [0],
+            color=EXACT_COLOR,
+            linestyle=":",
+            linewidth=2.25,
+            label="Linear spectral prediction",
+        ),
+        Line2D(
+            [0],
+            [0],
+            color=LINEAR_OPTIMUM_COLOR,
+            marker="o",
+            markerfacecolor="white",
+            markeredgewidth=1.2,
+            linestyle="-",
+            linewidth=2.25,
+            markersize=6,
+            label="Linear experimental optimum",
+        ),
+        Line2D(
+            [0],
+            [0],
+            color=NONLINEAR_OPTIMUM_COLOR,
+            marker="s",
+            markeredgewidth=1.2,
+            linestyle="--",
+            linewidth=2.25,
+            markersize=5.5,
+            label="Nonlinear experimental optimum",
+        ),
+    ]
+    labels = [handle.get_label() for handle in handles]
     fig.legend(
         handles,
         labels,
@@ -229,17 +462,18 @@ def plot_figure4(data_dir, config):
             group["omega"],
             group["iter_count"],
             label=method,
-            linewidth=1.8,
+            linewidth=2.25,
             color=style["color"],
+            linestyle=style["linestyle"],
         )
         exp_omega = group["omega_experimental"].dropna().iloc[0]
-        ax.axvline(exp_omega, color="#111827", linewidth=1.2, label="Experimental optimum")
+        ax.axvline(exp_omega, color=EXACT_COLOR, linewidth=1.5, label="Experimental optimum")
         predicted = group["omega_predicted"].dropna()
         if not predicted.empty:
             ax.axvline(
                 predicted.iloc[0],
-                color="#64748b",
-                linewidth=1.2,
+                color=SECONDARY_COLOR,
+                linewidth=1.5,
                 linestyle="--",
                 label="Predicted optimum",
             )
@@ -248,15 +482,15 @@ def plot_figure4(data_dir, config):
             cutoff = cutoff_rows["omega"].max()
             ax.axvline(
                 cutoff,
-                color="#6b7280",
-                linewidth=1.2,
+                color=JACOBI_COLOR,
+                linewidth=1.5,
                 linestyle=":",
                 label="Highest convergent omega",
             )
         ax.set_title(method)
         ax.set_xlabel(r"$\omega$")
         ax.set_ylabel("Iterations")
-        ax.grid(True, alpha=0.3)
+        ax.grid(True, which="major")
     handles = []
     labels = []
     for ax in axes:
@@ -315,11 +549,16 @@ def plot_figure5(data_dir, config):
 
 def save_figure(fig, fig_num, output_dir, iteration, overwrite):
     output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / f"fig{fig_num}-{iteration}.png"
-    if path.exists() and not overwrite:
-        raise FileExistsError(f"{path} already exists. Use --overwrite to replace it.")
-    fig.savefig(path, dpi=600, bbox_inches="tight")
-    return path
+    paths = [
+        output_dir / f"fig{fig_num}-{iteration}.png",
+        output_dir / f"fig{fig_num}-{iteration}.pdf",
+    ]
+    for path in paths:
+        if path.exists() and not overwrite:
+            raise FileExistsError(f"{path} already exists. Use --overwrite to replace it.")
+    fig.savefig(paths[0], dpi=600, bbox_inches="tight", facecolor="white")
+    fig.savefig(paths[1], bbox_inches="tight", facecolor="white")
+    return paths
 
 
 def parse_args():
@@ -338,6 +577,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    configure_style()
     figures = parse_figures(args.figures)
     made = []
     for fig_num in figures:
@@ -354,8 +594,8 @@ def main():
             raise AssertionError(f"Unhandled figure {fig_num}")
 
         if args.save:
-            path = save_figure(fig, fig_num, args.output_dir, args.iteration, args.overwrite)
-            made.append(path)
+            paths = save_figure(fig, fig_num, args.output_dir, args.iteration, args.overwrite)
+            made.extend(paths)
         if not args.show:
             plt.close(fig)
 

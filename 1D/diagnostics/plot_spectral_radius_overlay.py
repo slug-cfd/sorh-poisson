@@ -14,6 +14,9 @@ from sp_analysis_parabolic import spectral_radius as parabolic_spectral_radius
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
+SORH_COLOR = "#3D8DFF"
+SORP_COLOR = "#E87521"
+EXACT_COLOR = "#252525"
 
 
 def _omega_values(omega_min, omega_max, samples):
@@ -147,6 +150,7 @@ def plot_spectral_radius_overlay(
 
     plt.rcParams.update(
         {
+            "font.family": "DejaVu Sans",
             "font.size": 11,
             "axes.labelsize": 12,
             "axes.titlesize": 14,
@@ -186,8 +190,8 @@ def plot_spectral_radius_overlay(
     ax_hyperbolic.plot(
         sorh_omega_values,
         rho_hyperbolic,
-        color="#0072B2",
-        linewidth=2.0,
+        color=SORH_COLOR,
+        linewidth=2.5,
         label=_minimum_label(
             minimum_label_names[0],
             sorh_omega_values,
@@ -196,8 +200,8 @@ def plot_spectral_radius_overlay(
     )
     ax_hyperbolic.axhline(
         1.0,
-        color="0.35",
-        linewidth=1.2,
+        color=EXACT_COLOR,
+        linewidth=1.5,
         linestyle=":",
         label=r"Stability threshold, $\rho(G)=1$",
     )
@@ -215,8 +219,8 @@ def plot_spectral_radius_overlay(
     ax_parabolic.plot(
         sorp_omega_values,
         rho_parabolic,
-        color="#D55E00",
-        linewidth=2.0,
+        color=SORP_COLOR,
+        linewidth=2.5,
         label=_minimum_label(
             minimum_label_names[1],
             sorp_omega_values,
@@ -225,8 +229,8 @@ def plot_spectral_radius_overlay(
     )
     ax_parabolic.axhline(
         1.0,
-        color="0.35",
-        linewidth=1.2,
+        color=EXACT_COLOR,
+        linewidth=1.5,
         linestyle=":",
         label=r"Stability threshold, $\rho(G)=1$",
     )
