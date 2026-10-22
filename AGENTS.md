@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a Python 3.12 research codebase for numerical solver experiments. The `2D/` directory contains the two-dimensional code: `2D/main.py` is the entry point, `2D/configuration/` contains declarative settings, JSON loading, runtime types, and explicit initialization, and the JSON files in `2D/configs/` contain reusable settings. `2D/problems/` stores problem definitions, and `2D/methods/` stores solver implementations including `2D/methods/poisson/`, `2D/methods/nonlinear_diffusion/`, and `2D/methods/linear_diffusion.py`. The `2D/tests/unit/` directory contains deterministic unit tests; the top level of `2D/tests/` contains smoke checks, validation scripts, and benchmarks, while named subdirectories contain larger studies. `2D/diagnostics/` contains analysis and plotting scripts. The `1D/` directory contains the one-dimensional code: `1D/main.py` is the entry point, `1D/config1D.py`, `1D/load_config1D.py`, and `1D/config_sample1D.json` handle runtime configuration, `1D/methods/` stores solvers, `1D/tests/` contains test and benchmark helpers, and `1D/diagnostics/` contains analysis, plotting, and spectral-radius scripts. Generated outputs are written to `2D/results/` and `1D/results/`; avoid committing new large result files unless they are intentionally part of an experiment record. Older implementations are kept in `archive/`.
+This is a Python 3.12 research codebase for numerical solver experiments. The `2D/` directory contains the two-dimensional code: `2D/main.py` is the entry point, `2D/configuration/` contains declarative settings, JSON loading, runtime types, and explicit initialization, and the JSON files in `2D/configs/` contain reusable settings. `2D/problems/` stores problem definitions, and `2D/methods/` stores solver implementations including `2D/methods/poisson/`, `2D/methods/nonlinear_diffusion/`, and `2D/methods/linear_diffusion.py`. The `2D/tests/unit/` directory contains deterministic unit tests; the top level of `2D/tests/` contains smoke checks, validation scripts, and benchmarks, while named subdirectories contain larger studies. `2D/diagnostics/` contains analysis and plotting scripts. The `1D/` directory contains the one-dimensional code: `1D/main.py` is the entry point, `1D/config1D.py`, `1D/load_config1D.py`, and `1D/configs/config_sample1D.json` handle runtime configuration, `1D/methods/` stores solvers, `1D/tests/` contains test and benchmark helpers, and `1D/diagnostics/` contains analysis, plotting, and spectral-radius scripts. Generated outputs are written to `2D/results/` and `1D/results/`; avoid committing new large result files unless they are intentionally part of an experiment record. Older implementations are kept in `archive/`.
 
 ## Build, Test, and Development Commands
 
@@ -47,8 +47,9 @@ cd 1D
 uv run python load_config1D.py
 ```
 
-Use the report-data collectors under `1D/tests/`, then create the report and
-problem-definition figures with the current diagnostics:
+The completed thesis data are frozen under `1D/results/thesis_report_data/`.
+Use the report-style collectors under `1D/tests/` only for new experiments;
+they write separately under `1D/results/generated_report_data/`:
 
 ```bash
 cd 1D
@@ -71,4 +72,4 @@ Recent commit messages are short, imperative summaries such as `added ADI implem
 
 ## Security & Configuration Tips
 
-Do not commit local virtual environments, IDE files, caches, or temporary outputs. Keep reusable experiment settings in `2D/config_sample.json`, `1D/config_sample1D.json`, or a clearly named config file, and avoid embedding machine-specific paths in source files.
+Do not commit local virtual environments, IDE files, caches, or temporary outputs. Keep reusable experiment settings in `2D/config_sample.json`, `1D/configs/config_sample1D.json`, or a clearly named config file, and avoid embedding machine-specific paths in source files.

@@ -17,7 +17,7 @@ from solver1D import run_simulation
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT = BASE_DIR / "results" / "omega_sweep.csv"
+DEFAULT_OUTPUT = BASE_DIR / "results" / "studies" / "omega_sweeps" / "latest.csv"
 
 CFL = 0.8
 V = 0.5

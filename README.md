@@ -17,7 +17,7 @@ The `1D/` directory contains the one-dimensional solver experiments.
   main.py                 # main config-driven 1D driver
   config1D.py             # 1D config dataclasses and defaults
   load_config1D.py        # JSON config loader
-  config_sample1D.json    # default run configuration
+  configs/                # default and example run configurations
   solver1D.py             # shared 1D solver runner
   problem_helpers.py      # exact/reference helpers
   methods/                # linear and nonlinear method implementations
@@ -40,30 +40,42 @@ cd 1D
 uv run python load_config1D.py
 ```
 
-Change simulation parameters by editing `1D/config_sample1D.json`, or pass another JSON file with:
+Change simulation parameters by editing `1D/configs/config_sample1D.json`, or pass another JSON file with:
 
 ```bash
 cd 1D
 uv run python main.py --config path/to/config.json
 ```
 
-### Report figure data
+### Completed thesis data and new report-style runs
 
-The collectors for the 1D report data (Figures 3.1-3.4) live in `1D/tests/`. Run Figure 3 first to create
-the shared omega-sweep dataset, then reuse that dataset for Figures 1, 2, and 4
-to avoid repeating solver runs:
+The final data used by the completed thesis are preserved under
+[`1D/results/thesis_report_data/`](1D/results/thesis_report_data/). The report
+plotter uses that frozen dataset by default, but writes recreated figures to
+`1D/results/generated_report_figures/`.
+
+To rerun Figures 1–4 with the collector that produced the frozen thesis data:
+
+```bash
+cd 1D
+uv run python tests/collect_report_figure_data.py --figures 1 2 3 4
+```
+
+Each run gets a new directory under `1D/results/generated_report_data/comprehensive/`.
+For smaller, individual runs, collect Figure 3 first and reuse its omega sweep:
 
 ```bash
 cd 1D
 uv run python tests/collect_figure3_data.py
-uv run python tests/collect_figure1_data.py --omega-data results/final_report_figure_data/consistency_rerun_20260801/figure3_omega_sweeps.csv
-uv run python tests/collect_figure2_data.py --omega-data results/final_report_figure_data/consistency_rerun_20260801/figure3_omega_sweeps.csv
-uv run python tests/collect_figure4_data.py --omega-data results/final_report_figure_data/consistency_rerun_20260801/figure3_omega_sweeps.csv
+uv run python tests/collect_figure1_data.py --omega-data results/generated_report_data/figure3_omega_sweeps.csv
+uv run python tests/collect_figure2_data.py --omega-data results/generated_report_data/figure3_omega_sweeps.csv
+uv run python tests/collect_figure4_data.py --omega-data results/generated_report_data/figure3_omega_sweeps.csv
 ```
 
-`omega_sweep.py` provides the shared sweep routine. By default, all four
-collectors write concise CSV files under
-`1D/results/final_report_figure_data/consistency_rerun_20260801/`.
+The individual collectors write to `1D/results/generated_report_data/` and
+overwrite their default CSVs on rerun; use `--output` to keep separate runs.
+Use explicit data-directory options with `plot_report_figures.py` when plotting
+newly collected data.
 
 Generate the report figures from the collected data, or create the standalone
 problem-setup and spectral-radius figures, with:
@@ -149,4 +161,9 @@ Generated outputs are written under each workspace’s `results/` directory:
 2D/results/
 ```
 
-These directories are for experiment records, benchmark CSVs, summaries, and plots. Avoid committing large generated outputs unless they are intentionally part of an experiment record.
+The repository includes the frozen [1D thesis data](1D/results/thesis_report_data/)
+and a [representative 1D solver record](1D/results/reference/sample_linear_sorh_run.json).
+New 1D runs, working studies, archived results, and 2D results remain local by
+default. The results directories contain experiment records, benchmark CSVs,
+summaries, and plots; add new outputs to the repository only when they document
+a specific result you want readers to inspect.

@@ -13,6 +13,9 @@ from sp_analysis_hyperbolic import spectral_radius as hyperbolic_spectral_radius
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 RESULTS_DIR = BASE_DIR / "results"
+DEFAULT_OUTPUT_STEM = (
+    RESULTS_DIR / "generated_figures" / "spectral_radius" / "hyperbolic_by_grid_size"
+)
 
 
 def _rho_curve(N, r, omega_values):
@@ -39,7 +42,7 @@ def plot_hyperbolic_spectral_radius_by_N(
     omega_min=0.0,
     omega_max=1.5,
     samples=1501,
-    output_stem=RESULTS_DIR / "hyperbolic_spectral_radius_by_N",
+    output_stem=DEFAULT_OUTPUT_STEM,
 ):
     representative_N = max(N_values)
     dx = (xb - xa) / representative_N
@@ -142,7 +145,7 @@ def parse_args():
     parser.add_argument(
         "--output-stem",
         type=Path,
-        default=RESULTS_DIR / "hyperbolic_spectral_radius_by_N",
+        default=DEFAULT_OUTPUT_STEM,
         help="Output path without extension. PNG and PDF are both written.",
     )
     return parser.parse_args()

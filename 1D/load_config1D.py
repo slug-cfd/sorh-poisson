@@ -49,6 +49,7 @@ def config_from_json(path: str | Path) -> Config1D:
         solver_config=_load_solver_config(raw.get("solver_config", {})),
         plot_enabled=raw.get("plot_enabled", raw.get("plot", False)),
         plot_history_norm=raw.get("plot_history_norm", "exact"),
+        initial_profile=raw.get("initial_profile", "mixed"),
         dt_factor=raw.get("dt_factor", 1.0),
         xa=raw.get("xa", 0.0),
         xb=raw.get("xb", 1.0),
@@ -61,5 +62,5 @@ def config_from_json(path: str | Path) -> Config1D:
 
 
 if __name__ == "__main__":
-    cfg = config_from_json(Path(__file__).with_name("config_sample1D.json"))
+    cfg = config_from_json(Path(__file__).with_name("configs") / "config_sample1D.json")
     print(cfg)

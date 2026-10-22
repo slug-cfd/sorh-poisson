@@ -1,4 +1,4 @@
-"""Collect nonlinear method performance data for Figure 2."""
+"""Collect new nonlinear performance data in the completed thesis figure format."""
 
 import argparse
 import csv
@@ -11,8 +11,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = (
     BASE_DIR
     / "results"
-    / "final_report_figure_data"
-    / "consistency_rerun_20260801"
+    / "generated_report_data"
     / "figure2_nonlinear_performance.csv"
 )
 

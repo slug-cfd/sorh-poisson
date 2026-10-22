@@ -1,4 +1,4 @@
-"""Collect formula and experimental optimal omega values for Figure 3."""
+"""Collect new omega data in the completed thesis figure format."""
 
 import argparse
 import csv
@@ -12,8 +12,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = (
     BASE_DIR
     / "results"
-    / "final_report_figure_data"
-    / "consistency_rerun_20260801"
+    / "generated_report_data"
     / "figure3_omega_optima.csv"
 )
 

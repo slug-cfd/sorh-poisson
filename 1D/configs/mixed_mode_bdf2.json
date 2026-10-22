@@ -1,0 +1,31 @@
+{
+    "_comment": "Fourth-order mixed-mode error propagation with the BDF2 SORh LHS.",
+
+    "problem": "linear_mixed_mode",
+    "initial_profile": "mixed",
+    "method": "sor_linear_hyperbolic_fourth_bdf2",
+
+    "N": 65,
+    "cfl": 0.9,
+    "omega": 0.91,
+    "use_omega_opt": false,
+    "iter_max": 20000,
+    "norm": 2,
+
+    "plot_enabled": true,
+    "plot_history_norm": "exact",
+
+    "dt_factor": 1.0,
+    "xa": 0.0,
+    "xb": 1.0,
+    "left_bc": 0.0,
+    "right_bc": 0.0,
+    "hyperbolic_linear_v": 0.5,
+
+    "solver_config": {
+        "tol_update": 1e-12,
+        "tol_exact": 1e-8,
+        "res_max": 1e8,
+        "stop_on_exact": true
+    }
+}

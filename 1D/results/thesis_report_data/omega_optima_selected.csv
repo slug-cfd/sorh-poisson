@@ -1,0 +1,11 @@
+problem,method_label,method,N,interior_unknowns,cfl,omega_predicted,omega_experimental,omega_experimental_3dp,omega_offset,iter_count,elapsed_sec,final_update,final_exact,converged,stable,reason,search_stage
+nonlinear,SORp,sor_nonlinear_parabolic,17,16,0.8,,2.8800000000000017,2.88,,122,0.0031820409931242466,9.00126250073239e-08,0.00030721814457706614,True,True,tol_update,experimental_broad_coarse
+nonlinear,SORp,sor_nonlinear_parabolic,33,32,0.8,,2.853,2.853,,448,0.022268750006332994,9.748359439760253e-08,0.0001229472519223804,True,True,tol_update,fine
+nonlinear,SORp,sor_nonlinear_parabolic,65,64,0.8,,2.7610000000000006,2.761,,1760,0.15224437497090548,9.99716752722152e-08,5.0052924959876806e-05,True,True,tol_update,fine
+nonlinear,SORp,sor_nonlinear_parabolic,129,128,0.8,,2.6820000000000004,2.682,,6807,1.1403384589357302,9.990718663673569e-08,3.261875561510821e-05,True,True,tol_update,fine
+nonlinear,SORp,sor_nonlinear_parabolic,257,256,0.8,,2.625,2.625,,25556,8.481166291981936,9.996113542070671e-08,7.576269559343204e-05,True,True,tol_update,fine
+nonlinear,SORh,sor_nonlinear_hyperbolic,17,16,0.8,,0.8240000000000005,0.824,,104,0.0029975840589031577,8.66577528692835e-08,0.0003073123283268831,True,True,tol_update,fine
+nonlinear,SORh,sor_nonlinear_hyperbolic,33,32,0.8,,0.8990000000000006,0.899,,210,0.010436292039230466,8.704823487900014e-08,0.000122274313971075,True,True,tol_update,fine
+nonlinear,SORh,sor_nonlinear_hyperbolic,65,64,0.8,,0.9460000000000006,0.946,,419,0.03853579191491008,9.952449514475221e-08,4.60338246225196e-05,True,True,tol_update,fine
+nonlinear,SORh,sor_nonlinear_hyperbolic,129,128,0.8,,0.9650000000000006,0.965,,815,0.14553166704718024,9.424290872209116e-08,1.5284034986388693e-05,True,True,tol_update,fine
+nonlinear,SORh,sor_nonlinear_hyperbolic,257,256,0.8,,0.9820000000000007,0.982,,1584,0.5466624579858035,9.890119015934782e-08,4.595957812243241e-06,True,True,tol_update,fine

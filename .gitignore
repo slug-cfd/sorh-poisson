@@ -30,7 +30,9 @@ env/
 
 # Generated experiment outputs
 /results/
-/1D/results/
+/1D/results/*
+!/1D/results/thesis_report_data/
+!/1D/results/reference/
 /2D/results/
 
 # Python packaging locks (optional depending on workflow)

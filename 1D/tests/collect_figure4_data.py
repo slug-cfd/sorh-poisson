@@ -1,4 +1,4 @@
-"""Collect the two fixed omega-sensitivity curves used by Figure 4."""
+"""Collect new omega-sensitivity data in the completed thesis figure format."""
 
 import argparse
 import csv
@@ -17,8 +17,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = (
     BASE_DIR
     / "results"
-    / "final_report_figure_data"
-    / "consistency_rerun_20260801"
+    / "generated_report_data"
     / "figure4_sensitivity_converged.csv"
 )
 

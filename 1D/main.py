@@ -4,15 +4,14 @@ from pathlib import Path
 
 import numpy as np
 
-from config1D import method_name_map
 from load_config1D import config_from_json
 from diagnostics.plot1D import plot_solution
 from solver1D import run_simulation
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_CONFIG = BASE_DIR / "config_sample1D.json"
-DEFAULT_OUTPUT = BASE_DIR / "results" / "test_record1D.json"
+DEFAULT_CONFIG = BASE_DIR / "configs/config_sample1D.json"
+DEFAULT_OUTPUT = BASE_DIR / "results" / "latest_run.json"
 
 
 def _json_default(obj):
@@ -43,12 +42,21 @@ def main():
 
     U, t, iter_count, histories, record = run_simulation(config)
 
-    print("method:", method_name_map[config.method])
+    print("---", config.run_display_name, "---")
+    # print("method:", config.method)
+    # print("problem:", config.problem_display_name)
+    # print()
+    print("omega: ", config.omega)
+    print("interior size: ", config.interior_size)
     print("iterations:", iter_count)
+    print()
     print("final update residual:", record.results.residual_final)
+    if record.results.equation_residual_final is not None:
+        print("final equation residual:", record.results.equation_residual_final)
     print("final exact diagnostic:", record.meta["exact_final"])
     print("best exact diagnostic:", record.meta["best_exact"], "| iteration", record.meta["best_iter"])
-    print("time t:", t)
+    print()
+    print("pseudo-time t:", t)
     print("elapsed time:", record.results.elapsed_sec)
     print("stop reason:", record.results.reason)
 

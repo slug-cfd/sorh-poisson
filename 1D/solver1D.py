@@ -10,7 +10,9 @@ from methods.linear import (
     gs_parabolic as gs_linear_parabolic,
     jacobi_parabolic as jacobi_linear_parabolic,
     sor_hyperbolic as sor_linear_hyperbolic,
+    sor_hyperbolic_fourth as sor_linear_hyperbolic_fourth,
     sor_parabolic as sor_linear_parabolic,
+    sor_parabolic_fourth as sor_linear_parabolic_fourth,
 )
 from methods.nonlinear import (
     gs_parabolic as gs_nonlinear_parabolic,
@@ -18,7 +20,7 @@ from methods.nonlinear import (
     sor_hyperbolic as sor_nonlinear_hyperbolic,
     sor_parabolic as sor_nonlinear_parabolic,
 )
-from problem_helpers import exact_diagnostic
+from problem_helpers import equation_residual, exact_diagnostic
 
 
 METHOD_REGISTRY = {
@@ -27,8 +29,11 @@ METHOD_REGISTRY = {
     "gs_linear_parabolic": gs_linear_parabolic,
     "gs_nonlinear_parabolic": gs_nonlinear_parabolic,
     "sor_linear_parabolic": sor_linear_parabolic,
+    "sor_linear_parabolic_fourth": sor_linear_parabolic_fourth,
     "sor_nonlinear_parabolic": sor_nonlinear_parabolic,
     "sor_linear_hyperbolic": sor_linear_hyperbolic,
+    "sor_linear_hyperbolic_fourth_comp": sor_linear_hyperbolic_fourth,
+    "sor_linear_hyperbolic_fourth_bdf2": sor_linear_hyperbolic_fourth,
     "sor_nonlinear_hyperbolic": sor_nonlinear_hyperbolic,
 }
 
@@ -43,6 +48,7 @@ class RunResult1D:
     residual_max: float
     elapsed_sec: float
     reason: str
+    equation_residual_final: float | None = None
 
 
 @dataclass
@@ -79,6 +85,7 @@ def solve(config: Config1D):
 
     update_hist = []
     exact_hist = []
+    equation_hist = []
     dt_hist = []
 
     best_exact = np.inf
@@ -89,8 +96,6 @@ def solve(config: Config1D):
     reason = "iter_max"
     stable = True
     converged = False
-    print("omega: ", config.omega)
-    print("interior size: ", config.interior_size)
 
     for iter_count in range(1, config.iter_max + 1):
         U_old = U.copy()
@@ -107,9 +112,20 @@ def solve(config: Config1D):
             config.norm,
             config.interior_size,
         )
+        equation_values = equation_residual(U, config)
+        equation_res = (
+            _norm(
+                _interior(equation_values, config),
+                config.norm,
+                config.interior_size,
+            )
+            if equation_values is not None
+            else np.nan
+        )
 
         update_hist.append(update_res)
         exact_hist.append(exact_res)
+        equation_hist.append(equation_res)
 
         dt = params.get("dt", 0.0)
         dt_hist.append(dt)
@@ -141,6 +157,7 @@ def solve(config: Config1D):
     histories = {
         "update": np.array(update_hist),
         "exact": np.array(exact_hist),
+        "equation": np.array(equation_hist),
         "dt": np.array(dt_hist),
         "best_exact": best_exact,
         "best_iter": best_iter,
@@ -148,6 +165,11 @@ def solve(config: Config1D):
         "reason": reason,
         "converged": converged,
         "stable": stable,
+        "method_params": {
+            key: value
+            for key, value in params.items()
+            if key in {"c0", "lhs_stencil", "p1", "p2", "r", "v"}
+        },
     }
 
     return U, t, iter_count, histories
@@ -168,6 +190,13 @@ def run_simulation(config: Config1D):
         residual_min = float(np.min(residuals))
         residual_max = float(np.max(residuals))
 
+    equation_residuals = histories["equation"]
+    equation_residual_final = (
+        float(equation_residuals[-1])
+        if equation_residuals.size and np.isfinite(equation_residuals[-1])
+        else None
+    )
+
     record = RunRecord1D(
         config=config,
         results=RunResult1D(
@@ -177,15 +206,18 @@ def run_simulation(config: Config1D):
             residual_final=residual_final,
             residual_min=residual_min,
             residual_max=residual_max,
+            equation_residual_final=equation_residual_final,
             elapsed_sec=elapsed,
             reason=histories["reason"],
         ),
         meta={
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "run_display_name": config.run_display_name,
             "t": t,
             "exact_final": float(histories["exact"][-1]) if histories["exact"].size else np.inf,
             "best_exact": float(histories["best_exact"]),
             "best_iter": histories["best_iter"],
+            "method_params": histories["method_params"],
         },
     )
 

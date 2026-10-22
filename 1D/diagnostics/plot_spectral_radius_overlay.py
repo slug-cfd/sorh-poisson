@@ -142,7 +142,8 @@ def plot_spectral_radius_overlay(
         filename_suffix = "_2column" if layout == "columns" else ""
         output_stem = (
             RESULTS_DIR
-            / "report_figures"
+            / "generated_figures"
+            / "spectral_radius"
             / f"spectral_radius_comparison_1D_N{N}{filename_suffix}"
         )
     output_stem = Path(output_stem)
@@ -306,7 +307,8 @@ def parse_args():
         default=None,
         help=(
             "Output path without extension. By default, PNG and PDF are written "
-            "under 1D/results/report_figures with N included in the filename."
+            "under 1D/results/generated_figures/spectral_radius with N included "
+            "in the filename."
         ),
     )
     return parser.parse_args()

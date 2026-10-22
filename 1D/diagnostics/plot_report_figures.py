@@ -10,8 +10,8 @@ import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
-DEFAULT_DATA_DIR = BASE_DIR / "results" / "final_report_figure_data"
-DEFAULT_FIGURE_DIR = BASE_DIR / "results" / "report_figures"
+DEFAULT_DATA_DIR = BASE_DIR / "results" / "thesis_report_data"
+DEFAULT_FIGURE_DIR = BASE_DIR / "results" / "generated_report_figures"
 DEFAULT_FIGURE3_DATA_DIR = DEFAULT_DATA_DIR
 DEFAULT_FIGURE4_DATA_DIR = DEFAULT_DATA_DIR
 
@@ -562,7 +562,9 @@ def save_figure(fig, fig_num, output_dir, iteration, overwrite):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Create final-report figures from collected 1D data.")
+    parser = argparse.ArgumentParser(
+        description="Recreate the completed thesis figures or plot compatible new 1D data."
+    )
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     parser.add_argument("--figure3-data-dir", type=Path, default=DEFAULT_FIGURE3_DATA_DIR)
     parser.add_argument("--figure4-data-dir", type=Path, default=DEFAULT_FIGURE4_DATA_DIR)

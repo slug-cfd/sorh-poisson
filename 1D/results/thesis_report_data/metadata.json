@@ -1,0 +1,78 @@
+{
+  "description": "Data collection for final-report 1D figures. No figure files are generated.",
+  "created_by": "collect_report_figure_data.py",
+  "N_values": [
+    17,
+    33,
+    65,
+    129,
+    257
+  ],
+  "N_note": "These values are passed directly to Config1D.N. In the current code this gives interior_size = N - 1, matching the requested 16, 32, 64, 128, 256 interior unknowns.",
+  "methods": {
+    "jacobi": "Jacobi",
+    "gs": "GS",
+    "sorp": "SORp",
+    "sorh": "SORh"
+  },
+  "cfl": 0.8,
+  "v": 0.5,
+  "tol_update": 1e-07,
+  "iter_max": 200000,
+  "performance_convergence_policy": {
+    "required": "Figure 1 and Figure 2 performance rows must converge by tol_update.",
+    "initial_iter_max": 200000,
+    "iter_growth": 2,
+    "max_retries": 3,
+    "iter_max_limit": 1600000,
+    "failure_behavior": "raise RuntimeError before writing an invalid performance row"
+  },
+  "figure3_problem": "linear",
+  "figure4_problem": "nonlinear",
+  "figure4_N": 129,
+  "figure5_problem": "nonlinear",
+  "omega_refinement": {
+    "linear_note": "Linear SOR searches are centered on the spectral predicted omega.",
+    "linear_sorp_half_width": 0.3,
+    "linear_sorh_half_width": 0.12,
+    "linear_coarse_step": 0.01,
+    "nonlinear_note": "Nonlinear SOR searches are broad experimental sweeps only; no spectral prediction is used.",
+    "nonlinear_selection_policy": "Select the best converged omega on the first contiguous converged branch; ignore later isolated converged pockets after the first failed candidate.",
+    "nonlinear_sorp_range": [
+      1.0,
+      3.5
+    ],
+    "nonlinear_sorh_range": [
+      0.2,
+      1.2
+    ],
+    "nonlinear_coarse_step": 0.01,
+    "fine_step": 0.001,
+    "selected_value": "experimental optimum rounded to 3 decimals"
+  },
+  "exploratory_failsafe": {
+    "enabled": true,
+    "applies_to": "Omega optimization and Figure 4 sensitivity sweeps only.",
+    "iter_max": 50000,
+    "window": 1000,
+    "min_iter": 2000,
+    "check_every": 250,
+    "min_relative_improvement": 0.001,
+    "residual_floor": 1e-14,
+    "reason": "stagnated_update"
+  },
+  "figure5_plateau": {
+    "tol_update": 1e-10,
+    "iter_max": 300000,
+    "window": 25,
+    "relative_range_tolerance": 0.001,
+    "absolute_scale": 1e-14,
+    "reported_error": "mean numerical error over the final plateau window"
+  },
+  "discrepancies_resolved": [
+    "The instructions call N a total grid-point count, but Config1D.N produces N-1 interior unknowns and an x array with N+1 entries. The script uses the requested N values as Config1D.N because that matches the requested interior-unknown counts.",
+    "Spectral-analysis predictions are used only for the linear problem. Nonlinear SOR optima are selected by experimental broad sweep plus local refinement.",
+    "Figure 3 does not name a problem. The script fixes it to the linear problem because the requested predicted-vs-experimental comparison depends on spectral analysis.",
+    "Figure 4 is fixed to the nonlinear problem and does not use spectral predictions. Its omega_predicted values are null and is_predicted_omega is false."
+  ]
+}

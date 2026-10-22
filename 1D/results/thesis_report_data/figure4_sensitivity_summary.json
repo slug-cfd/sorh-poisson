@@ -1,0 +1,40 @@
+[
+  {
+    "problem": "nonlinear",
+    "method_label": "SORp",
+    "method": "sor_nonlinear_parabolic",
+    "N": 129,
+    "tol_update": 1e-07,
+    "iter_max": 10000,
+    "omega_min_sampled": 2.264,
+    "omega_max_sampled": 2.683,
+    "lower_failure_omega": 2.264,
+    "lower_failure_reason": "iter_max",
+    "upper_failure_omega": 2.683,
+    "upper_failure_reason": "iter_max",
+    "highest_converged_omega": 2.682,
+    "best_omega": 2.682,
+    "best_iter_count": 6807,
+    "n_runs": 108,
+    "n_converged": 106
+  },
+  {
+    "problem": "nonlinear",
+    "method_label": "SORh",
+    "method": "sor_nonlinear_hyperbolic",
+    "N": 129,
+    "tol_update": 1e-07,
+    "iter_max": 10000,
+    "omega_min_sampled": 0.721,
+    "omega_max_sampled": 0.994,
+    "lower_failure_omega": 0.721,
+    "lower_failure_reason": "iter_max",
+    "upper_failure_omega": 0.994,
+    "upper_failure_reason": "iter_max",
+    "highest_converged_omega": 0.993,
+    "best_omega": 0.965,
+    "best_iter_count": 815,
+    "n_runs": 102,
+    "n_converged": 100
+  }
+]
