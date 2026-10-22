@@ -2,7 +2,7 @@
 
 This repository contains the Python code and selected research records supporting a thesis on hyperbolic successive over-relaxation (SORh). It compares SORh with parabolic SOR (SORp) and other iterative methods on one- and two-dimensional problems. The included data and figures support inspection of the thesis results; new experiments can be run independently of those records.
 
-The thesis itself, *SORh: Hyperbolic Relaxation Methods For Elliptic Problems In Computational Fluid Dynamics*, can be found [here](https://escholarship.org/uc/item/5gc906gb). We also have a journal submission(s) in progress, grounded in the thesis context and results collected in this repository. 
+The thesis itself, *SORh: Hyperbolic Relaxation Methods For Elliptic Problems In Computational Fluid Dynamics*, can be found [here](https://escholarship.org/uc/item/5gc906gb).
 
 ## Repository map
 
