@@ -99,14 +99,13 @@ The configuration pipeline is explicit: `load_config()` returns declarative
 2D/
   main.py              # command-line entry point
   configuration/       # settings, JSON loading, and explicit initialization
-  config_sample.json   # small default Poisson run
-  configs/             # named Poisson and nonlinear examples
+  configs/             # default sample, Poisson, and nonlinear examples
   methods/             # numerical methods by equation type
   problems/            # problem definitions and registries
   tests/               # smoke checks, validations, benchmarks, and studies
     unit/              # deterministic unittest suite
   diagnostics/         # plotting and analysis scripts
-  results/             # generated output (normally not committed)
+  results/             # frozen thesis data and ignored new output
 ```
 
 Run the small default case or a named example:
@@ -115,11 +114,14 @@ Run the small default case or a named example:
 cd 2D
 uv run python main.py
 uv run python main.py --config configs/config_poisson.json
-uv run python main.py --config configs/config_nonlinear.json --output results/nonlinear_record.json
+uv run python main.py --config configs/config_nonlinear.json
 ```
 
-The driver writes `results/test_record.json` by default. Plotting is off by
-default; set `output.plot` or `output.plot_exact` in a config, or use
+The driver reads `configs/config_sample.json` by default and writes each run
+to a new JSON file under `results/generated_runs/`. Use `--output` to choose a
+path and `--overwrite` to replace an existing file deliberately. Plotting is
+off in the sample config; set
+`output.plot` or `output.plot_exact` in a config, or use
 `--plot`/`--plot-exact` on the command line. Command-line flags override the
 config and have matching `--no-plot` forms.
 
@@ -140,6 +142,12 @@ Run the bounded smoke check or the unit suite:
 uv run python tests/smoke.py
 uv run python -m unittest discover -s tests/unit -t . -p 'test_*.py'
 ```
+
+The frozen [two-blob and nonlinear study data](2D/results/README.md) support
+the 2D thesis results. The [two-blob](2D/tests/two_blob_studies/README.md) and
+[nonlinear](2D/tests/nonlinear_studies/README.md) study guides explain how to
+collect new runs. The default driver and plotters write to ignored output
+folders, leaving the frozen data unchanged.
 
 Run standalone 2D diagnostics as package modules from `2D/`; use `--help` to
 see their inputs and output locations:
@@ -163,7 +171,6 @@ Generated outputs are written under each workspace’s `results/` directory:
 
 The repository includes the frozen [1D thesis data](1D/results/thesis_report_data/)
 and a [representative 1D solver record](1D/results/reference/sample_linear_sorh_run.json).
-New 1D runs, working studies, archived results, and 2D results remain local by
-default. The results directories contain experiment records, benchmark CSVs,
-summaries, and plots; add new outputs to the repository only when they document
-a specific result you want readers to inspect.
+The [2D thesis data](2D/results/README.md) include the two-blob Poisson and
+nonlinear diffusion studies, plus square and rectangular omega-formula checks.
+New runs, working diagnostics, and archived results remain local by default.

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+from datetime import datetime
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -302,10 +303,15 @@ def plot_omega_vs_rho(
     xb: float = 1.0,
     ya: float = 0.0,
     yb: float = 1.0,
-    outdir: Path = RESULTS_DIR,
+    outdir: Path | None = None,
     make_single_plots: bool = True,
 ) -> dict:
     """Generate omega-vs-rho curves for square interior grids."""
+    outdir = outdir or (
+        RESULTS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    )
+    if outdir.exists() and any(outdir.iterdir()):
+        raise FileExistsError(f"Output directory is not empty: {outdir}")
     outdir.mkdir(parents=True, exist_ok=True)
 
     omega_values = np.arange(omega_min, omega_max + 0.5 * domega, domega)
@@ -396,8 +402,8 @@ def plot_omega_vs_rho(
         "cfl": cfl,
         "dt_factor": dt_factor,
         "domain": {"xa": xa, "xb": xb, "ya": ya, "yb": yb},
-        "overlay_plot": str(overlay_path),
-        "csv": str(csv_path),
+        "overlay_plot": overlay_path.name,
+        "csv": csv_path.name,
         "runs": {
             str(N): {
                 "grid": asdict(curves[N]["grid"]),
@@ -433,7 +439,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--xb", type=float, default=1.0)
     parser.add_argument("--ya", type=float, default=0.0)
     parser.add_argument("--yb", type=float, default=1.0)
-    parser.add_argument("--outdir", type=Path, default=RESULTS_DIR)
+    parser.add_argument("--outdir", type=Path)
     parser.add_argument("--no-single-plots", action="store_true")
     return parser.parse_args()
 

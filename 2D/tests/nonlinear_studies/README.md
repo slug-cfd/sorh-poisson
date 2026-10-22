@@ -33,8 +33,7 @@ Reoptimize SORp specifically for the $u_0=x$ initial guess at $N=32$, while
 retaining the original fixed-omega initial-guess study:
 
 ```bash
-uv run python -m tests.nonlinear_studies.optimize_initial_guess_sorp \
-  --omega-results results/nonlinear_studies/omega/20260803-040244/best_by_case.csv
+uv run python -m tests.nonlinear_studies.optimize_initial_guess_sorp
 ```
 
 This performs a coarse-to-fine search only for the linear-in-$x$ guess and
@@ -42,23 +41,25 @@ writes a three-case comparison under
 `results/nonlinear_studies/initial_sorp_optimized/`.
 
 Each collection command creates a timestamped directory under
-`results/nonlinear_studies/<study>/` containing `all_runs.csv`, a compact
-comparison/selection CSV, and `settings.json`.
+`results/nonlinear_studies/<study>/`. Studies with distinct search trials and
+selected cases contain `all_runs.csv`; every study contains its named
+comparison/selection CSV and `settings.json`.
 
 After the degeneracy study, generate its derived table and plot separately:
 
 ```bash
 uv run python -m tests.nonlinear_studies.plot_degeneracy \
-  results/nonlinear_studies/degeneracy/<timestamp>
+  results/nonlinear_studies/degeneracy/20260803-061736
 ```
+
+The plotter writes to a new directory under `results/generated_figures/`.
 
 Run the focused N=32 causal control that freezes SORp's nonlinear face
 coefficients once per sweep, calibrates its omega, and compares it with the
 existing SORh and SORp implementations:
 
 ```bash
-uv run python -m tests.nonlinear_studies.compare_frozen_sorp \
-  --omega-results results/nonlinear_studies/omega/20260803-040244/best_by_case.csv
+uv run python -m tests.nonlinear_studies.compare_frozen_sorp
 ```
 
 The experiment selects `p_unsplit_config.coefficient_mode=frozen_per_sweep`

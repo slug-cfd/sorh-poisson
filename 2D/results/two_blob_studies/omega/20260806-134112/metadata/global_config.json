@@ -1,0 +1,95 @@
+{
+  "study": "two_blob_omega_search",
+  "first_written_at": "2026-08-06 13:41:12",
+  "last_written_at": "2026-08-06 14:40:00",
+  "settings_source": "tests/two_blob_studies/study_defaults.json",
+  "settings_sha256": "dba25efd263c8ada912880fab450271175851e48f9cc75dde9f16eed97051683",
+  "study_axes": {
+    "N": [
+      16,
+      32,
+      64,
+      128,
+      256
+    ],
+    "method": [
+      "h_unsplit",
+      "p_unsplit"
+    ],
+    "cfl": [
+      1.0,
+      0.8
+    ]
+  },
+  "study_options": {
+    "relative_step": 0.0025,
+    "minimum_step": 0.0005,
+    "max_steps_per_side": 5,
+    "increase_patience": 2,
+    "formula_implementation": "Config.compute_omega_opt",
+    "selection_metric": "minimum converged iteration count",
+    "selection_tiebreakers": [
+      "distance from formula",
+      "wall time"
+    ],
+    "search_order": "formula, then alternating left/right increments",
+    "manual_search_extensions": [
+      {
+        "N": 16,
+        "method": "h_unsplit",
+        "cfl": 0.8,
+        "direction": "right",
+        "step_indices": [
+          6,
+          7,
+          8
+        ],
+        "purpose": "bracket the minimum after the automated search reached max_steps"
+      }
+    ]
+  },
+  "fixed_parameters": {
+    "problem": "poisson",
+    "poisson_problem": "two_blob",
+    "domain": {
+      "xa": -20.0,
+      "xb": 20.0,
+      "ya": -20.0,
+      "yb": 20.0
+    },
+    "problem_constants": {
+      "R": 1.0,
+      "rho0": 3.0,
+      "G": 0.07957747154594767
+    },
+    "boundary_condition": "analytic Dirichlet data",
+    "initial_guess": "zero",
+    "laplacian_stencil": "centered",
+    "ghost_layers": null,
+    "multigrid": false,
+    "norm": "fro",
+    "tol_residual": 1e-05,
+    "tol_update_stagnation": 1e-10,
+    "res_max": 100000000.0,
+    "iter_max": 20000,
+    "methods": {
+      "h_unsplit": {
+        "label": "SORh",
+        "mode": "default",
+        "manual_omega": 0.9
+      },
+      "p_unsplit": {
+        "label": "SORp",
+        "gs_ordering": "lexicographic",
+        "manual_omega": 1.0
+      }
+    }
+  },
+  "runtime": {
+    "python": "3.12.11",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "numpy": "2.4.0",
+    "timer": "time.perf_counter",
+    "cpu_timer": "time.process_time"
+  }
+}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import csv
+from datetime import datetime
 import hashlib
 import io
 import json
@@ -247,6 +248,24 @@ def read_csv(path):
         return list(csv.DictReader(stream))
 
 
+def latest_omega_results(path=None, required=()):
+    if path is not None:
+        candidate = Path(path)
+        return candidate / "best_omega.csv" if candidate.is_dir() else candidate
+
+    for candidate in reversed(sorted((RESULTS_ROOT / "omega").glob("*/best_omega.csv"))):
+        available = {
+            (int(float(row["N"])), row["method"], round(float(row["cfl"]), 12))
+            for row in read_csv(candidate)
+        }
+        if set(required) <= available:
+            return candidate
+    raise FileNotFoundError(
+        "No completed two-blob omega results cover the requested cases. "
+        "Run collect_omega first or provide --omega-results."
+    )
+
+
 def write_csv(path, rows, fieldnames):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -260,7 +279,7 @@ def prepare_output_dir(study, output_dir=None, resume=False):
     if output_dir is None:
         if resume:
             raise ValueError("--resume requires an explicit --output-dir.")
-        stamp = time.strftime("%Y%m%d-%H%M%S")
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         output_dir = RESULTS_ROOT / study / stamp
     else:
         output_dir = Path(output_dir)
@@ -283,6 +302,14 @@ def file_sha256(path):
     return digest.hexdigest()
 
 
+def portable_path(path):
+    resolved = Path(path).resolve()
+    try:
+        return str(resolved.relative_to(BASE_DIR))
+    except ValueError:
+        return f"external/{resolved.name}"
+
+
 def write_global_metadata(
     output_dir,
     study,
@@ -297,7 +324,7 @@ def write_global_metadata(
         "study": study,
         "first_written_at": timestamp,
         "last_written_at": timestamp,
-        "settings_source": str(settings_path),
+        "settings_source": portable_path(settings_path),
         "settings_sha256": file_sha256(settings_path),
         "study_axes": study_axes,
         "study_options": study_options,

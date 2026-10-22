@@ -19,7 +19,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 RESULTS = ROOT / "2D" / "results" / "nonlinear_studies"
-DEFAULT_OUTPUT = RESULTS / "figures"
+DEFAULT_OUTPUT = ROOT / "2D" / "results" / "generated_figures" / "nonlinear"
 
 DEFAULT_PERFORMANCE_DIR = RESULTS / "performance" / "20260803-064210"
 DEFAULT_DEGENERACY_DIR = RESULTS / "degeneracy" / "20260803-061736"
@@ -131,8 +131,8 @@ def performance_figure(
     axes[0].set_yscale("log")
     axes[0].set_xticks(grid_sizes, [str(int(value)) for value in grid_sizes])
     axes[0].set_xlabel(r"Interior grid size, $N$")
-    axes[0].set_ylabel("Sweeps to tolerance")
-    axes[0].set_title("(a) Empirical sweep scaling", loc="left", fontweight="bold")
+    axes[0].set_ylabel("Iterations to tolerance")
+    axes[0].set_title("(a) Empirical iteration scaling", loc="left", fontweight="bold")
     axes[0].legend(loc="upper left")
 
     bars = axes[1].bar(
@@ -146,8 +146,8 @@ def performance_figure(
     axes[1].axhline(1.0, color=REFERENCE_COLOR, linestyle="--", linewidth=1.0)
     axes[1].set_xticks(np.arange(len(grid_sizes)), [str(int(value)) for value in grid_sizes])
     axes[1].set_xlabel(r"Interior grid size, $N$")
-    axes[1].set_ylabel("SORp sweeps / SORh sweeps")
-    axes[1].set_title("(b) SORh sweep advantage", loc="left", fontweight="bold")
+    axes[1].set_ylabel("SORp iterations / SORh iterations")
+    axes[1].set_title("(b) SORh iteration advantage", loc="left", fontweight="bold")
     axes[1].set_ylim(0.0, 5.9)
     for bar, value in zip(bars, speedup, strict=True):
         axes[1].text(
@@ -212,14 +212,14 @@ def degeneracy_figure(
     )
     count_axis.plot(positions, sorp_sweeps, marker="s", color=SORP_COLOR, label="SORp")
     count_axis.set_yscale("log")
-    count_axis.set_ylabel("Sweeps to tolerance")
-    count_axis.set_title("(a) Optimized sweep counts", loc="left", fontweight="bold")
+    count_axis.set_ylabel("Iterations to tolerance")
+    count_axis.set_title("(a) Optimized iteration counts", loc="left", fontweight="bold")
     count_axis.legend(ncol=2, loc="upper right")
 
     ratio_axis.plot(positions, speedup, marker="o", color=RATIO_COLOR)
     ratio_axis.axhline(1.0, color=REFERENCE_COLOR, linestyle="--", linewidth=1.0)
-    ratio_axis.set_ylabel("SORp sweeps / SORh sweeps")
-    ratio_axis.set_title("(b) SORh sweep advantage", loc="left", fontweight="bold")
+    ratio_axis.set_ylabel("SORp iterations / SORh iterations")
+    ratio_axis.set_title("(b) SORh iteration advantage", loc="left", fontweight="bold")
     ratio_axis.annotate(
         rf"${speedup[0]:.2f}\times$",
         (positions[0], speedup[0]),

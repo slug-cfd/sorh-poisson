@@ -1,0 +1,13 @@
+{
+  "description": "Fixed versus adaptive timestep comparison",
+  "omega_results": "results/nonlinear_studies/omega/20260803-040244/best_by_case.csv",
+  "ordering": "lexicographic",
+  "tol_update": 1e-05,
+  "tol_residual": 1e-05,
+  "res_max": 100000000.0,
+  "exploratory_max_sweeps": 20000,
+  "final_max_sweeps": 60000,
+  "stagnation_min_sweeps": 2000,
+  "stagnation_window": 1000,
+  "stagnation_relative_improvement": 0.001
+}

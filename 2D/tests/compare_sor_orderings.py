@@ -12,6 +12,7 @@ for each method, ordering, and grid.  Use ``--h-bounds`` or ``--p-bounds`` if
 import argparse
 import contextlib
 import csv
+from datetime import datetime
 import io
 import json
 import math
@@ -160,11 +161,13 @@ def main():
     if args.refine_factor < 2:
         raise ValueError("refine-factor must be at least 2.")
 
-    stamp = time.strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     output_dir = args.output_dir or (
         Path(__file__).resolve().parents[1]
         / "results" / "sor_ordering_comparison" / stamp
     )
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise FileExistsError(f"Output directory is not empty: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     sweep_path = output_dir / "omega_sweep.csv"
     summary_rows = []
@@ -234,8 +237,10 @@ def main():
         writer.writeheader()
         writer.writerows(summary_rows)
 
+    settings = vars(args).copy()
+    settings["output_dir"] = output_dir.name
     with (output_dir / "settings.json").open("w") as stream:
-        json.dump(vars(args), stream, indent=2, default=str)
+        json.dump(settings, stream, indent=2)
 
     print(f"\nFull sweep: {sweep_path}")
     print(f"Best cases: {summary_path}")

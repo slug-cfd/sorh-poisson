@@ -2,15 +2,15 @@
     "_comment": "Default 2D Poisson configuration",
     "problem": {"kind": "poisson", "case": "two_blob"},
     "grid": {
-        "Nx": 32,
-        "Ny": 32,
+        "Nx": 64,
+        "Ny": 64,
         "laplacian_stencil": "centered",
         "ghost_layers": null
     },
     "run": {
         "method": "h_unsplit",
         "cfl": 0.8,
-        "omega": 0.9,
+        "omega": 1.30,
         "use_omega_opt": true,
         "iter_max": 2000,
         "norm": "fro",
@@ -48,5 +48,5 @@
             "prolongation": "bilinear"
         }
     },
-    "output": {"plot": true, "plot_exact": false}
+    "output": {"plot": false, "plot_exact": false}
 }

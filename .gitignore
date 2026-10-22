@@ -33,7 +33,11 @@ env/
 /1D/results/*
 !/1D/results/thesis_report_data/
 !/1D/results/reference/
-/2D/results/
+/2D/results/*
+!/2D/results/README.md
+!/2D/results/two_blob_studies/
+!/2D/results/nonlinear_studies/
+!/2D/results/h_unsplit_omega_formula_validation/
 
 # Python packaging locks (optional depending on workflow)
 # uv.lock

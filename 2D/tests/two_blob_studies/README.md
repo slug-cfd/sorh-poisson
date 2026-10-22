@@ -41,16 +41,17 @@ search, provide its existing directory explicitly:
 
 ```bash
 uv run python -m tests.two_blob_studies.collect_omega \
-  --output-dir results/two_blob_studies/omega/<timestamp> --resume
+  --output-dir results/two_blob_studies/omega/RUN_TIMESTAMP --resume
 ```
+
+Replace `RUN_TIMESTAMP` with the interrupted run's directory name.
 
 ## 2. Performance
 
 After the omega search finishes, run:
 
 ```bash
-uv run python -m tests.two_blob_studies.collect_performance \
-  --omega-results results/two_blob_studies/omega/<timestamp>/best_omega.csv
+uv run python -m tests.two_blob_studies.collect_performance
 ```
 
 If `--omega-results` is omitted, the newest completed `best_omega.csv` is used.
@@ -75,8 +76,7 @@ Accuracy is collected separately so practical performance convergence does not
 contaminate the spatial-error results:
 
 ```bash
-uv run python -m tests.two_blob_studies.collect_accuracy \
-  --omega-results results/two_blob_studies/omega/<timestamp>/best_omega.csv
+uv run python -m tests.two_blob_studies.collect_accuracy
 ```
 
 Each case is solved once with residual tolerance `1e-10`, update-stagnation

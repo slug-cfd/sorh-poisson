@@ -11,7 +11,7 @@ from configuration import initialize_simulation, load_config
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = BASE_DIR / "configs" / "config_poisson.json"
-DEFAULT_OUTPUT_DIR = BASE_DIR / "results" / "two_blob_studies" / "figures"
+DEFAULT_OUTPUT_DIR = BASE_DIR / "results" / "generated_figures" / "two_blob"
 
 
 def plot_two_blob_problem(config, sample_points=401):

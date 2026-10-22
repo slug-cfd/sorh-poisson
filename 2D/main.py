@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 import time
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from runner import run_simulation, save_record
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_CONFIG = BASE_DIR / "config_sample.json"
+DEFAULT_CONFIG = BASE_DIR / "configs" / "config_sample.json"
 DEFAULT_RESULTS_DIR = BASE_DIR / "results"
 
 
@@ -135,7 +136,8 @@ def _solver_name(config):
 def parse_args():
     parser = argparse.ArgumentParser(description="Run a config-driven 2D solver.")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--output", default=str(DEFAULT_RESULTS_DIR / "test_record.json"))
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--plot", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--plot-exact", action=argparse.BooleanOptionalAction, default=None)
     return parser.parse_args()
@@ -143,6 +145,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.output is not None and args.output.exists() and not args.overwrite:
+        raise FileExistsError(f"Output file already exists: {args.output}")
     settings = load_config(args.config)
     config = initialize_simulation(settings)
     plot = config.plot if args.plot is None else args.plot
@@ -155,7 +159,12 @@ def main():
 
     solver = SOLVERS[_solver_name(config)]
     record = run_simulation(config, solver, plot)
-    save_record(record, args.output)
+    output = args.output or (
+        DEFAULT_RESULTS_DIR / "generated_runs"
+        / f"{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}.json"
+    )
+    save_record(record, output, overwrite=args.overwrite)
+    print(f"wrote {output}")
 
 
 if __name__ == "__main__":

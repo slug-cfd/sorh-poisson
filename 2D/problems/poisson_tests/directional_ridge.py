@@ -11,8 +11,8 @@ from .types import PoissonTestProblem
 
 
 DEFAULT_THETA = 0.25 * np.pi
-DEFAULT_SIGMA = 0.035
-DEFAULT_K = 0.2 * np.pi
+DEFAULT_SIGMA = 0.055
+DEFAULT_K = 0.3 * np.pi
 DEFAULT_AMPLITUDE = 62.50
 
 

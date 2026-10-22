@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
@@ -21,6 +22,7 @@ from tests.nonlinear_studies.common import (
     is_stagnated,
     make_config,
     run_case,
+    save_study,
     select_first_converged_branch,
 )
 
@@ -128,6 +130,36 @@ class NonlinearStudyPolicyTests(unittest.TestCase):
         self.assertEqual(row["reason"], "numerical_guard")
         self.assertTrue(np.isnan(row["final_face_v_min"]))
         self.assertTrue(np.isnan(row["final_face_v_max"]))
+
+    def test_study_can_omit_redundant_all_runs_file(self):
+        rows = [{"case": "fixed", "sweeps": 12}]
+        with TemporaryDirectory() as directory:
+            output = save_study(
+                "unused",
+                rows,
+                rows,
+                {"description": "duplicate-output check"},
+                output_dir=Path(directory),
+                summary_name="comparison.csv",
+                write_all_runs=False,
+            )
+
+            self.assertFalse((output / "all_runs.csv").exists())
+            self.assertTrue((output / "comparison.csv").exists())
+
+    def test_study_does_not_replace_existing_results(self):
+        with TemporaryDirectory() as directory:
+            output = Path(directory)
+            existing = output / "comparison.csv"
+            existing.write_text("original\n")
+
+            with self.assertRaises(FileExistsError):
+                save_study(
+                    "unused", [{"case": "new"}], [{"case": "new"}],
+                    {}, output_dir=output, summary_name="comparison.csv",
+                )
+
+            self.assertEqual(existing.read_text(), "original\n")
 
 
 if __name__ == "__main__":

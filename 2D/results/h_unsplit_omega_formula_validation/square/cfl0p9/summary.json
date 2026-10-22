@@ -1,0 +1,44 @@
+[
+  {
+    "N": 16,
+    "status": "near_miss",
+    "poisson_problem": "two_blob",
+    "mode": "default",
+    "cfl": 0.9,
+    "omega_predicted": 0.836756838857996,
+    "predicted_sweeps": 33,
+    "best_omega": 0.838756838857996,
+    "best_omega_offset": 0.0020000000000000018,
+    "best_sweeps": 31,
+    "sweep_gap": 2,
+    "best_elapsed_sec": 0.017706166952848434
+  },
+  {
+    "N": 32,
+    "status": "near_miss",
+    "poisson_problem": "two_blob",
+    "mode": "default",
+    "cfl": 0.9,
+    "omega_predicted": 0.9107325953945112,
+    "predicted_sweeps": 69,
+    "best_omega": 0.9127325953945112,
+    "best_omega_offset": 0.0020000000000000018,
+    "best_sweeps": 67,
+    "sweep_gap": 2,
+    "best_elapsed_sec": 0.1722747078165412
+  },
+  {
+    "N": 64,
+    "status": "near_miss",
+    "poisson_problem": "two_blob",
+    "mode": "default",
+    "cfl": 0.9,
+    "omega_predicted": 0.953227350791381,
+    "predicted_sweeps": 139,
+    "best_omega": 0.955227350791381,
+    "best_omega_offset": 0.0020000000000000018,
+    "best_sweeps": 135,
+    "sweep_gap": 4,
+    "best_elapsed_sec": 1.5000562923960388
+  }
+]

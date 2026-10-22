@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+from datetime import datetime
 import math
 import time
 from pathlib import Path
@@ -260,13 +261,19 @@ def main() -> None:
     parser.add_argument("--nx", type=int, default=64)
     parser.add_argument("--ny", type=int, default=64)
     parser.add_argument("--iter-max", type=int, default=5000)
-    parser.add_argument("--outdir", type=Path, default=Path("results/directional_ridge"))
+    parser.add_argument("--outdir", type=Path)
     parser.add_argument("--omega-min", type=float, default=0.90)
     parser.add_argument("--omega-max", type=float, default=0.99)
     parser.add_argument("--omega-step", type=float, default=0.03)
     parser.add_argument("--fine-radius", type=float, default=0.04)
     parser.add_argument("--fine-step", type=float, default=0.01)
     args = parser.parse_args()
+    output_dir = args.outdir or (
+        Path("results/directional_ridge")
+        / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    )
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise FileExistsError(f"Output directory is not empty: {output_dir}")
 
     best_omega, omega_rows = optimize_omega(
         nx=args.nx,
@@ -285,8 +292,8 @@ def main() -> None:
         iter_max=args.iter_max,
     )
 
-    write_rows(args.outdir / "omega_default_theta.csv", omega_rows)
-    write_rows(args.outdir / "theta_sweep.csv", theta_rows)
+    write_rows(output_dir / "omega_default_theta.csv", omega_rows)
+    write_rows(output_dir / "theta_sweep.csv", theta_rows)
 
     print_summary("Omega sweep at default theta", omega_rows)
     print(f"\nBest omega at theta={math.degrees(DEFAULT_THETA):.1f} deg: {best_omega:.2f}")

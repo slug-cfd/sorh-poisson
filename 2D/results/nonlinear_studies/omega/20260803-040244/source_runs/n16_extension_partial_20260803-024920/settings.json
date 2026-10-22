@@ -1,0 +1,15 @@
+{
+  "description": "N=16 SORp extension of omega calibration",
+  "source": "results/nonlinear_studies/omega/20260803-040244/source_runs/baseline_calibration_20260803-023124/all_runs.csv",
+  "ordering": "lexicographic",
+  "cfl": 0.8,
+  "selection_policy": "best run on first contiguous converged branch",
+  "tol_update": 1e-05,
+  "tol_residual": 1e-05,
+  "res_max": 100000000.0,
+  "exploratory_max_sweeps": 20000,
+  "final_max_sweeps": 60000,
+  "stagnation_min_sweeps": 2000,
+  "stagnation_window": 1000,
+  "stagnation_relative_improvement": 0.001
+}

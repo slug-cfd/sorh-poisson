@@ -2,9 +2,10 @@
 
 import argparse
 import csv
+from datetime import datetime
 from pathlib import Path
 
-from .common import write_csv
+from .common import BASE_DIR, write_csv
 
 
 def parse_args():
@@ -25,7 +26,12 @@ def main():
         if args.results.is_dir()
         else args.results
     )
-    output_dir = args.output_dir or source.parent
+    output_dir = args.output_dir or (
+        BASE_DIR / "results" / "generated_figures" / "nonlinear" / "degeneracy"
+        / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    )
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise FileExistsError(f"Output directory is not empty: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     with source.open(newline="") as stream:
         rows = list(csv.DictReader(stream))

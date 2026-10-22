@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+from datetime import datetime
 import json
 import math
 from pathlib import Path
@@ -25,7 +26,7 @@ from problems import poisson
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-RESULTS_DIR = BASE_DIR / "results" / "h_unsplit_rect_omega_formula_cfl0p9"
+RESULTS_ROOT = BASE_DIR / "results" / "generated_formula_validation" / "rectangular"
 TOL_UPDATE = 1e-5
 TOL_RESIDUAL = 1e-5
 RES_MAX = 1e8
@@ -258,12 +259,25 @@ def parse_args():
     parser.add_argument("--poisson-problem", default="two_blob")
     parser.add_argument("--laplacian-stencil", default="centered")
     parser.add_argument("--ghost-layers", type=int, default=None)
-    parser.add_argument("--output-dir", type=Path, default=RESULTS_DIR)
+    parser.add_argument("--output-dir", type=Path)
     return parser.parse_args()
+
+
+def default_output_dir(cfl):
+    value = f"{cfl:g}"
+    if "." not in value:
+        value += ".0"
+    return (
+        RESULTS_ROOT / f"cfl{value.replace('.', 'p')}"
+        / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    )
 
 
 def main():
     args = parse_args()
+    output_dir = args.output_dir or default_output_dir(args.cfl)
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise FileExistsError(f"Output directory is not empty: {output_dir}")
     rows = []
     for Nx, Ny in args.grids:
         omega_pred, c_max = predicted_omega(Nx, Ny)
@@ -281,7 +295,6 @@ def main():
             rows.append(run_case(config, omega_pred, c_max))
 
     summary = summarize(rows)
-    output_dir = args.output_dir
     write_csv(output_dir / "omega_sweep.csv", rows)
     with (output_dir / "summary.json").open("w") as fh:
         json.dump(summary, fh, indent=2)

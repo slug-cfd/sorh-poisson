@@ -16,7 +16,9 @@ import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 STUDY_RESULTS = BASE_DIR / "results" / "two_blob_studies"
-DEFAULT_OUTPUT_DIR = STUDY_RESULTS / "figures"
+DEFAULT_OUTPUT_DIR = BASE_DIR / "results" / "generated_figures" / "two_blob"
+DEFAULT_PERFORMANCE_DIR = STUDY_RESULTS / "performance" / "20260806-144641"
+DEFAULT_ACCURACY_DIR = STUDY_RESULTS / "accuracy" / "20260806-153914"
 
 METHOD_ORDER = ("h_unsplit", "p_unsplit")
 METHOD_STYLES = {
@@ -55,21 +57,6 @@ PLOT_STYLE = {
     "savefig.facecolor": "white",
     "savefig.transparent": False,
 }
-
-
-def latest_result_dir(study, required_files):
-    root = STUDY_RESULTS / study
-    matches = [
-        path
-        for path in sorted(root.glob("*"))
-        if path.is_dir() and all((path / name).exists() for name in required_files)
-    ]
-    if not matches:
-        required = ", ".join(required_files)
-        raise FileNotFoundError(
-            f"No completed {study} result directory contains: {required}"
-        )
-    return matches[-1]
 
 
 def load_csv(path, required_columns):
@@ -367,8 +354,8 @@ def cfl_stem(cfl):
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--performance-dir", type=Path)
-    parser.add_argument("--accuracy-dir", type=Path)
+    parser.add_argument("--performance-dir", type=Path, default=DEFAULT_PERFORMANCE_DIR)
+    parser.add_argument("--accuracy-dir", type=Path, default=DEFAULT_ACCURACY_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--performance-cfls", type=float, nargs="+", default=[1.0, 0.8])
     parser.add_argument("--dpi", type=int, default=600)
@@ -379,12 +366,8 @@ def parse_args():
 
 def main():
     args = parse_args()
-    performance_dir = args.performance_dir or latest_result_dir(
-        "performance", ["performance_summary.csv"]
-    )
-    accuracy_dir = args.accuracy_dir or latest_result_dir(
-        "accuracy", ["accuracy.csv", "observed_orders.csv"]
-    )
+    performance_dir = args.performance_dir
+    accuracy_dir = args.accuracy_dir
 
     performance = load_csv(
         performance_dir / "performance_summary.csv",

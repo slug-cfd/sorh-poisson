@@ -12,7 +12,7 @@ Install dependencies with:
 uv sync
 ```
 
-Run the default 2D simulation from `config_sample.json`:
+Run the default 2D simulation from `configs/config_sample.json`:
 
 ```bash
 cd 2D
@@ -23,7 +23,7 @@ Run config loading as a quick sanity check:
 
 ```bash
 cd 2D
-uv run python -c 'from configuration import load_config; print(load_config("config_sample.json"))'
+uv run python -c 'from configuration import load_config; print(load_config("configs/config_sample.json"))'
 ```
 
 Use `2D/tests/smoke.py` for a bounded solver check. Run the directional-ridge benchmark with:
@@ -64,7 +64,7 @@ Use 4-space indentation and keep code compatible with Python 3.12. Prefer explic
 
 ## Testing Guidelines
 
-There is no configured coverage target. Run the deterministic 2D unit suite from `2D/` with `uv run python -m unittest discover -s tests/unit -t . -p 'test_*.py'`. Validate broader solver changes with `2D/tests/smoke.py` or a small `2D/config_sample.json` case through `2D/main.py`. Add isolated behavior checks under `2D/tests/unit/`; reserve the top-level test scripts for bounded smoke checks, validations, and benchmarks.
+There is no configured coverage target. Run the deterministic 2D unit suite from `2D/` with `uv run python -m unittest discover -s tests/unit -t . -p 'test_*.py'`. Validate broader solver changes with `2D/tests/smoke.py` or a small `2D/configs/config_sample.json` case through `2D/main.py`. Add isolated behavior checks under `2D/tests/unit/`; reserve the top-level test scripts for bounded smoke checks, validations, and benchmarks.
 
 ## Commit & Pull Request Guidelines
 
@@ -72,4 +72,4 @@ Recent commit messages are short, imperative summaries such as `added ADI implem
 
 ## Security & Configuration Tips
 
-Do not commit local virtual environments, IDE files, caches, or temporary outputs. Keep reusable experiment settings in `2D/config_sample.json`, `1D/configs/config_sample1D.json`, or a clearly named config file, and avoid embedding machine-specific paths in source files.
+Do not commit local virtual environments, IDE files, caches, or temporary outputs. Keep reusable experiment settings in `2D/configs/config_sample.json`, `1D/configs/config_sample1D.json`, or a clearly named config file, and avoid embedding machine-specific paths in source files.

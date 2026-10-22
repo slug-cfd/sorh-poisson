@@ -214,6 +214,7 @@ def collect_h_cfl(omega_results=None, output_dir=None):
         },
         output_dir,
         summary_name="h_cfl_comparison.csv",
+        write_all_runs=False,
     )
 
 
@@ -304,6 +305,7 @@ def collect_initial(omega_results=None, output_dir=None):
         },
         output_dir,
         summary_name="initial_guess_comparison.csv",
+        write_all_runs=False,
     )
 
 

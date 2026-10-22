@@ -1,0 +1,25 @@
+{
+  "description": "Consolidated nonlinear omega calibration with refined N=16 and N=64 SORp optima",
+  "ordering": "lexicographic",
+  "cfl": 0.8,
+  "coefficient": "normalized epsilon=0 (original coefficient)",
+  "initial_guess": "zero",
+  "selection_policy": "best run on first contiguous converged branch",
+  "sources": [
+    "results/nonlinear_studies/omega/20260803-040244/source_runs/baseline_calibration_20260803-023124/all_runs.csv",
+    "results/nonlinear_studies/omega/20260803-040244/source_runs/n16_extension_completed_20260803-025014/all_runs.csv",
+    "results/nonlinear_studies/omega/20260803-040244/source_runs/n64_manual_20260803-030801/all_runs.csv",
+    "results/nonlinear_studies/omega/20260803-040244/source_runs/n64_manual_20260803-032112/all_runs.csv",
+    "results/nonlinear_studies/omega/20260803-040244/source_runs/n64_manual_20260803-032935/all_runs.csv",
+    "results/nonlinear_studies/omega/20260803-040244/source_runs/n64_manual_20260803-033643/all_runs.csv",
+    "results/nonlinear_studies/omega/20260803-040244/source_runs/n64_manual_20260803-035401/all_runs.csv"
+  ],
+  "tol_update": 1e-05,
+  "tol_residual": 1e-05,
+  "res_max": 100000000.0,
+  "exploratory_max_sweeps": 20000,
+  "final_max_sweeps": 60000,
+  "stagnation_min_sweeps": 2000,
+  "stagnation_window": 1000,
+  "stagnation_relative_improvement": 0.001
+}

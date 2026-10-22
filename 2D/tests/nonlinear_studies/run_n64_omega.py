@@ -41,7 +41,7 @@ def main():
         summary.append(mark_search_summary(best, omegas))
 
     output = save_study(
-        "omega_n64_manual",
+        "omega/manual_n64",
         rows,
         summary,
         {

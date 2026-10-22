@@ -2,6 +2,7 @@
 
 import contextlib
 import csv
+from datetime import datetime
 import io
 import json
 import math
@@ -323,11 +324,32 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
-def save_study(study, rows, summary_rows, settings, output_dir=None, summary_name="best_by_case.csv"):
-    stamp = time.strftime("%Y%m%d-%H%M%S")
+def _json_value(value):
+    if isinstance(value, Path):
+        resolved = value.resolve()
+        try:
+            return str(resolved.relative_to(BASE_DIR))
+        except ValueError:
+            return f"external/{resolved.name}"
+    return str(value)
+
+
+def save_study(
+    study,
+    rows,
+    summary_rows,
+    settings,
+    output_dir=None,
+    summary_name="best_by_case.csv",
+    write_all_runs=True,
+):
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     output_dir = Path(output_dir) if output_dir else RESULTS_ROOT / study / stamp
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise FileExistsError(f"Output directory is not empty: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
-    write_csv(output_dir / "all_runs.csv", rows)
+    if write_all_runs:
+        write_csv(output_dir / "all_runs.csv", rows)
     write_csv(output_dir / summary_name, summary_rows)
     payload = {
         **settings,
@@ -341,7 +363,7 @@ def save_study(study, rows, summary_rows, settings, output_dir=None, summary_nam
         "stagnation_relative_improvement": STAGNATION_RELATIVE_IMPROVEMENT,
     }
     with (output_dir / "settings.json").open("w") as stream:
-        json.dump(payload, stream, indent=2, default=str)
+        json.dump(payload, stream, indent=2, default=_json_value)
     print(f"wrote {output_dir}")
     return output_dir
 

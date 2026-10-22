@@ -11,10 +11,11 @@ import numpy as np
 from .common import (
     DEFAULT_SETTINGS,
     METHODS,
-    RESULTS_ROOT,
     file_sha256,
+    latest_omega_results,
     load_settings,
     make_config,
+    portable_path,
     prepare_output_dir,
     read_csv,
     run_poisson_case,
@@ -86,19 +87,6 @@ def _case_key(row):
 
 def _run_key(row):
     return (*_case_key(row), int(float(row["repetition"])))
-
-
-def latest_omega_results(path=None):
-    if path is not None:
-        candidate = Path(path)
-        return (candidate / "best_omega.csv") if candidate.is_dir() else candidate
-    matches = sorted((RESULTS_ROOT / "omega").glob("*/best_omega.csv"))
-    if not matches:
-        raise FileNotFoundError(
-            "No two-blob omega results were found. Run collect_omega first or "
-            "provide --omega-results."
-        )
-    return matches[-1]
 
 
 def load_selected_omegas(path):
@@ -228,12 +216,12 @@ def main():
     if repetitions < 2:
         raise ValueError("Performance timing requires at least two repetitions.")
 
-    omega_path = latest_omega_results(args.omega_results).resolve()
-    selected_omegas = load_selected_omegas(omega_path)
     required = {
         (int(N), method, round(float(cfl), 12))
         for N in Ns for method in METHODS for cfl in cfls
     }
+    omega_path = latest_omega_results(args.omega_results, required).resolve()
+    selected_omegas = load_selected_omegas(omega_path)
     missing = sorted(required - set(selected_omegas))
     if missing:
         raise KeyError(f"Selected omega data are missing cases: {missing}")
@@ -262,7 +250,7 @@ def main():
             "repetitions": repetitions,
             "timed_region": "poisson.solve_all only",
             "method_execution_order": "alternated by repetition",
-            "omega_results": str(omega_path),
+            "omega_results": portable_path(omega_path),
             "omega_results_sha256": file_sha256(omega_path),
         },
     )

@@ -1,0 +1,79 @@
+{
+  "study": "two_blob_discrete_solution_accuracy",
+  "first_written_at": "2026-08-06 15:39:14",
+  "last_written_at": "2026-08-06 15:39:14",
+  "settings_source": "tests/two_blob_studies/study_defaults.json",
+  "settings_sha256": "dba25efd263c8ada912880fab450271175851e48f9cc75dde9f16eed97051683",
+  "study_axes": {
+    "N": [
+      16,
+      32,
+      64,
+      128,
+      256
+    ],
+    "method": [
+      "h_unsplit",
+      "p_unsplit"
+    ],
+    "cfl": [
+      1.0,
+      0.8
+    ]
+  },
+  "study_options": {
+    "omega_results": "results/two_blob_studies/omega/20260806-134112/best_omega.csv",
+    "omega_results_sha256": "8b631794ccd0ce8b41ffd25e9409bf070c4e4703a02cbfbadcbd9d1380457d9e",
+    "residual_requirement": 1e-10,
+    "update_stagnation_safeguard": 1e-13,
+    "accuracy_iter_max": 100000,
+    "algebraic_error_bound": "residual_rms / discrete_lambda_min",
+    "algebraic_error_fraction_max": 0.001,
+    "accuracy_validity": "tol_residual stop and algebraic bound no more than the configured fraction of measured RMS solution error",
+    "saved_solution": "interior discrete solution for each case"
+  },
+  "fixed_parameters": {
+    "problem": "poisson",
+    "poisson_problem": "two_blob",
+    "domain": {
+      "xa": -20.0,
+      "xb": 20.0,
+      "ya": -20.0,
+      "yb": 20.0
+    },
+    "problem_constants": {
+      "R": 1.0,
+      "rho0": 3.0,
+      "G": 0.07957747154594767
+    },
+    "boundary_condition": "analytic Dirichlet data",
+    "initial_guess": "zero",
+    "laplacian_stencil": "centered",
+    "ghost_layers": null,
+    "multigrid": false,
+    "norm": "fro",
+    "tol_residual": 1e-10,
+    "tol_update_stagnation": 1e-13,
+    "res_max": 100000000.0,
+    "iter_max": 100000,
+    "methods": {
+      "h_unsplit": {
+        "label": "SORh",
+        "mode": "default",
+        "manual_omega": 0.9
+      },
+      "p_unsplit": {
+        "label": "SORp",
+        "gs_ordering": "lexicographic",
+        "manual_omega": 1.0
+      }
+    }
+  },
+  "runtime": {
+    "python": "3.12.11",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "numpy": "2.4.0",
+    "timer": "time.perf_counter",
+    "cpu_timer": "time.process_time"
+  }
+}

@@ -82,7 +82,7 @@ def _json_default(obj):
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
-def save_record(record: RunRecord, filename: str | Path):
+def save_record(record: RunRecord, filename: str | Path, *, overwrite: bool = False):
     filename = Path(filename)
     filename.parent.mkdir(parents=True, exist_ok=True)
     row = {
@@ -90,6 +90,6 @@ def save_record(record: RunRecord, filename: str | Path):
         "results": asdict(record.results),
         "meta": record.meta,
     }
-    with filename.open("w") as stream:
+    with filename.open("w" if overwrite else "x") as stream:
         json.dump(row, stream, default=_json_default)
         stream.write("\n")

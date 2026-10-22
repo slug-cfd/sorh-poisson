@@ -1,0 +1,27 @@
+{
+  "description": "N=32 SORp initial-guess comparison with local omega optimization",
+  "omega_results": "results/nonlinear_studies/omega/20260803-040244/best_by_case.csv",
+  "ordering": "lexicographic",
+  "N": 32,
+  "cfl": 0.8,
+  "coefficient": "normalized epsilon=0 (original coefficient)",
+  "search_initial_guess": "linear_x",
+  "coarse_range": [
+    2.0,
+    2.8
+  ],
+  "coarse_step": 0.1,
+  "fine_step": 0.02,
+  "search_max_sweeps": 6000,
+  "selection_policy": "best run on first contiguous converged branch",
+  "selected_linear_x_omega": 2.66,
+  "search_boundary_hit": false,
+  "tol_update": 1e-05,
+  "tol_residual": 1e-05,
+  "res_max": 100000000.0,
+  "exploratory_max_sweeps": 20000,
+  "final_max_sweeps": 60000,
+  "stagnation_min_sweeps": 2000,
+  "stagnation_window": 1000,
+  "stagnation_relative_improvement": 0.001
+}
