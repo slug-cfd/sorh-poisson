@@ -3,6 +3,8 @@
 These scripts collect the SORh/SORp data for the two-dimensional two-blob
 Poisson problem. Shared defaults are stored in `study_defaults.json`:
 
+Commands below use `uv run python`; after the [repository setup](../../../README.md#setup), an activated virtual environment can use `python` in its place.
+
 - interior grids: `N = 16, 32, 64, 128, 256` in each direction;
 - CFL values: `1.0` and `0.8`;
 - lexicographic SORh (`mode = default`) and lexicographic SORp;

@@ -1,7 +1,7 @@
 [project]
 name = "research"
 version = "0.1.0"
-description = "Add your description here"
+description = "One- and two-dimensional research experiments with iterative numerical solvers"
 requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.10.8",

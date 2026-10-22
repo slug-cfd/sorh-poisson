@@ -4,6 +4,8 @@ These are manual, preliminary studies for lexicographic `h_unsplit` and
 `p_unsplit`. Run commands from `2D`. Data collection and plotting are kept
 separate.
 
+Commands below use `uv run python`; after the [repository setup](../../../README.md#setup), an activated virtual environment can use `python` in its place.
+
 Run the omega calibration first:
 
 ```bash

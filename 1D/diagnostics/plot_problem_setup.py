@@ -8,8 +8,7 @@ from scipy.optimize import brentq
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-REPO_ROOT = BASE_DIR.parent
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "presentation" / "figures"
+DEFAULT_OUTPUT_DIR = BASE_DIR / "results" / "generated_report_figures" / "problem_setup"
 
 NONLINEAR_COLOR = "#007C78"
 LINEAR_COLOR = "#252525"

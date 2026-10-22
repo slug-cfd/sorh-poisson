@@ -42,3 +42,6 @@ env/
 # Python packaging locks (optional depending on workflow)
 # uv.lock
 /archive/
+/tmp/
+/SORh_Part1_JSC/
+/slugCode/
